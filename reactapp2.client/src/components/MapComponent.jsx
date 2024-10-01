@@ -134,6 +134,8 @@ function MapComponent() {
     const [sensorHeight, setSensorHeight] = useState(24); // Camera sensor height in mm
     const [photoInterval, setPhotoInterval] = useState(2); // Photo interval in seconds
     const [overlap, setOverlap] = useState(80);
+    const [autocomplete, setAutocomplete] = useState(null);
+
     const [bounds, setBounds] = useState('');
     const [boundsType, setBoundsType] = useState(["rectangle"]);
     const [startingIndex, setStartingIndex] = useState(1);
@@ -154,6 +156,8 @@ function MapComponent() {
     const mapRef = useRef(null);
     const genInfoWindow = useRef(null); // Ref for genInfoWindow
     const downloadLinkRef = useRef(null); // Ref for the download link
+    const inputRef = useRef(null);
+
     const [in_allPointsAction, setInAllPointsAction] = useState('takePhoto'); // New state variable for in_allPointsAction
 
     const buttonStyle = {
@@ -835,6 +839,33 @@ function MapComponent() {
         }
     };
 
+    const handlePlaceChanged = () => {
+        if (autocomplete) {
+            const place = autocomplete.getPlace();
+            if (place.geometry) {
+                const location = place.geometry.location;
+                mapRef.current.panTo(location);
+                mapRef.current.setZoom(14); // Adjust zoom level as needed
+            }
+        }
+    };
+
+
+    useEffect(() => {
+        if (isLoaded && inputRef.current) {
+            const autocompleteInstance = new google.maps.places.Autocomplete(inputRef.current);
+            autocompleteInstance.setFields(['geometry']);
+            autocompleteInstance.addListener('place_changed', handlePlaceChanged);
+            setAutocomplete(autocompleteInstance);
+        }
+    }, [isLoaded]);
+
+    const handleKeyPress = (event) => {
+        if (event.key === 'Enter') {
+            handlePlaceChanged();
+        }
+    };
+
     return (
         <div style={flexContainerStyle}>
             <div style={inputContainerStyle}>
@@ -845,6 +876,7 @@ function MapComponent() {
                     Search Location
                     <input
                         type="text"
+                        ref={inputRef}
                         placeholder="Search Location"
                         value={searchLocation}
                         onChange={(e) => setSearchLocation(e.target.value)}

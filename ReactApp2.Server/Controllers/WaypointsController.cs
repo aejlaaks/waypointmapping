@@ -8,7 +8,7 @@ using System.Security.Claims;
 
 namespace KarttaBackEnd2.Server.Controllers
 {
-    //[Authorize]
+    [Authorize]
     [ApiController]
     [Route("api/[controller]")]
     public class WaypointsController : ControllerBase
