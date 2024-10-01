@@ -838,8 +838,7 @@ function MapComponent() {
     return (
         <div style={flexContainerStyle}>
             <div style={inputContainerStyle}>
-                <button style={bottomLeftButtonStyle} onClick={submitFormFetch}>Generate waypoints</button>
-                <button style={bottomLeftButtonStyle} onClick={generateKml}>Generate KML</button>
+              
                 <a ref={downloadLinkRef} style={{ display: 'none' }}>Download KML</a>
                 {/* Add your input fields here */}
                 <label>
@@ -992,12 +991,11 @@ function MapComponent() {
                         {waypoints.map(waypoint => (
                             <Marker key={waypoint.id} position={{ lat: waypoint.lat, lng: waypoint.lng }} />
                         ))}
-                        <button style={bottomLeftButtonStyle} onClick={stopDrawing}>Stop Drawing</button>
+                        <button style={topLeftButtonStyle} onClick={stopDrawing}>Stop Drawing</button>
                         <input type="hidden" id="in_startingIndex" value={startingIndex} />
-
-                        <button style={drawingButtonContainerStyle} onClick={() => enableDrawingMode('polygon')}>Draw Polygon</button>
-                        <button style={drawingButtonContainerStyle} onClick={() => enableDrawingMode('rectangle')}>Draw Rectangle</button>
-                        <button style={drawingButtonContainerStyle} onClick={() => enableDrawingMode('circle')}>Draw Circle</button>
+                        <button style={bottomLeftButtonStyle} onClick={submitFormFetch}>Generate waypoints</button>
+                        <button style={bottomRightButtonStyle} onClick={generateKml}>Generate KML</button>
+                        <button style={topRightButtonStyle} onClick={() => enableDrawingMode('rectangle')}>Draw Rectangle</button>
                     </GoogleMap>
                 )}
             </div>
