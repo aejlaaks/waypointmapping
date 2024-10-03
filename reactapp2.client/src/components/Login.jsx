@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { login } from '../services/api';
 
-const Login = () => {
+const Login = ({ setIsAuthenticated }) => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
@@ -12,6 +12,8 @@ const Login = () => {
         e.preventDefault();
         try {
             const response = await login(email, password);
+            setIsAuthenticated(true);  // Päivitä autentikointitila
+
             localStorage.setItem('token', response.token);
             navigate('/map');
         } catch (err) {

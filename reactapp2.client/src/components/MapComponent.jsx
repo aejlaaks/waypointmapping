@@ -4,6 +4,7 @@ import { GoogleMap, useJsApiLoader, DrawingManager, InfoWindow, Marker, Polyline
 import WaypointInfoBox from './WaypointInfoBox';
 import axios from 'axios'; // Import axios for making API calls
 import "../App.css";
+const apiBaseUrl = import.meta.env.VITE_API_BASE_URL;;
 
 
 const libraries = ['drawing', 'places'];
@@ -647,7 +648,7 @@ function MapComponent() {
         };
 
         try {
-            const response = await axios.post('https://localhost:7146/api/KMZ/generate', requestData, {
+            const response = await axios.post(`${apiBaseUrl}/api/KMZ/generate`, requestData, {
                 responseType: 'blob', // Important for file download
             });
 
@@ -714,7 +715,7 @@ function MapComponent() {
         };
 
 
-        fetch("https://localhost:7146/api/waypoints/generatePoints", {
+        fetch(`${apiBaseUrl}/api/waypoints/generatePoints`, {
             method: "post",
             headers: {
                 "Content-Type": "application/json"
