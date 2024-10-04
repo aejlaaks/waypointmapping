@@ -1,5 +1,5 @@
 trigger:
-- main  # Vaihda branch tarpeen mukaan
+- test  # Branch on 'test'
 
 pool:
   vmImage: 'ubuntu-latest'
@@ -13,7 +13,6 @@ jobs:
     inputs:
       packageType: 'sdk'
       version: '8.x'  # Vaihda tarvittaessa .NET-versio
-
 
   - task: DotNetCoreCLI@2
     displayName: 'Rakenna ja julkaise ASP.NET Core API'
@@ -33,6 +32,13 @@ jobs:
     displayName: 'Rakenna React-sovellus'
     workingDirectory: 'reactapp2.client'  # React-sovelluksen hakemisto
 
+  - task: CopyFiles@2
+    displayName: 'Kopioi React-sovelluksen build-tulosteet'
+    inputs:
+      SourceFolder: 'reactapp2.client/build'  # React-sovelluksen build-tulosteiden sijainti
+      Contents: '**'
+      TargetFolder: '$(Build.ArtifactStagingDirectory)/react'  # Kohdekansio pipeline-artifakteille
+
   - task: PublishBuildArtifacts@1
     displayName: 'Julkaise rakennusartifaktit'
     inputs:
@@ -40,15 +46,10 @@ jobs:
       artifactName: 'drop'
       publishLocation: 'Container'
 
-  - task: DownloadBuildArtifacts@0
-    displayName: 'Lataa artifaktit'
-    inputs:
-      artifactName: 'drop'
-
   - task: CopyFilesOverSSH@0
     displayName: 'Kopioi API Linux-virtuaalikoneelle'
     inputs:
-      sshEndpoint: 'test'
+      sshEndpoint: 'test'  # Käytä luomaasi service connectionin nimeä
       sourceFolder: '$(Build.ArtifactStagingDirectory)/api'
       targetFolder: '/var/www/map/api'  # Kohdekansio API:lle
       cleanTargetFolder: true
@@ -56,7 +57,7 @@ jobs:
   - task: CopyFilesOverSSH@0
     displayName: 'Kopioi React-sovellus Linux-virtuaalikoneelle'
     inputs:
-      sshEndpoint: 'test'
+      sshEndpoint: 'test'  # Käytä luomaasi service connectionin nimeä
       sourceFolder: '$(Build.ArtifactStagingDirectory)/react'
       targetFolder: '/var/www/map/react'  # Kohdekansio React-sovellukselle
       cleanTargetFolder: true
@@ -64,6 +65,6 @@ jobs:
   - task: SSH@0
     displayName: 'Käynnistä NGINX uudelleen'
     inputs:
-      sshEndpoint: 'test'
+      sshEndpoint: 'test'  # Käytä luomaasi service connectionin nimeä
       runOptions: 'inline'
       inline: 'sudo systemctl restart nginx'
