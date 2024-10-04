@@ -1,0 +1,69 @@
+trigger:
+- main  # Vaihda branch tarpeen mukaan
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+jobs:
+- job: Build_and_Deploy
+  displayName: 'Rakennus ja julkaisu'
+  steps:
+  - task: UseDotNet@2
+    displayName: 'Asenna .NET Core SDK'
+    inputs:
+      packageType: 'sdk'
+      version: '8.x'  # Vaihda tarvittaessa .NET-versio
+
+
+  - task: DotNetCoreCLI@2
+    displayName: 'Rakenna ja julkaise ASP.NET Core API'
+    inputs:
+      command: 'publish'
+      projects: '**/ReactApp2.Server/*.csproj'
+      arguments: '--configuration Release --output $(Build.ArtifactStagingDirectory)/api'
+
+  - task: NodeTool@0
+    displayName: 'Asenna Node.js'
+    inputs:
+      versionSpec: '16.x'  # Vaihda tarvittaessa Node.js-versio
+
+  - script: |
+      npm install
+      npm run build
+    displayName: 'Rakenna React-sovellus'
+    workingDirectory: 'reactapp2.client'  # React-sovelluksen hakemisto
+
+  - task: PublishBuildArtifacts@1
+    displayName: 'Julkaise rakennusartifaktit'
+    inputs:
+      pathToPublish: '$(Build.ArtifactStagingDirectory)'
+      artifactName: 'drop'
+      publishLocation: 'Container'
+
+  - task: DownloadBuildArtifacts@0
+    displayName: 'Lataa artifaktit'
+    inputs:
+      artifactName: 'drop'
+
+  - task: CopyFilesOverSSH@0
+    displayName: 'Kopioi API Linux-virtuaalikoneelle'
+    inputs:
+      sshEndpoint: 'test'
+      sourceFolder: '$(Build.ArtifactStagingDirectory)/api'
+      targetFolder: '/var/www/map/api'  # Kohdekansio API:lle
+      cleanTargetFolder: true
+
+  - task: CopyFilesOverSSH@0
+    displayName: 'Kopioi React-sovellus Linux-virtuaalikoneelle'
+    inputs:
+      sshEndpoint: 'test'
+      sourceFolder: '$(Build.ArtifactStagingDirectory)/react'
+      targetFolder: '/var/www/map/react'  # Kohdekansio React-sovellukselle
+      cleanTargetFolder: true
+
+  - task: SSH@0
+    displayName: 'Käynnistä NGINX uudelleen'
+    inputs:
+      sshEndpoint: 'test'
+      runOptions: 'inline'
+      inline: 'sudo systemctl restart nginx'
