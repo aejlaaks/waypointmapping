@@ -1,5 +1,10 @@
 import axios from 'axios'; 
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || '';// Luodaan axios-instanssi, jossa on perus URL-osoit
+const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || '';
+
+if (!import.meta.env.VITE_API_BASE_URL) {
+    console.warn('VITE_API_BASE_URL is not defined. Using default value: ');
+}
+
 
 const api = axios.create({
   baseURL: `${apiBaseUrl}/api/`,  // Oikea tapa käyttää template stringiä
