@@ -4,6 +4,9 @@ trigger:
 pool:
   vmImage: 'ubuntu-latest'
 
+variables:
+  VITE_API_BASE_URL: ''
+
 jobs:
 - job: Build_and_Deploy
   displayName: 'Rakennus ja julkaisu'
