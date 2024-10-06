@@ -19,6 +19,7 @@ namespace KarttaBackEnd2.Server.Services
             var waypoints = new List<Waypoint>();
             int id = in_startingIndex;
 
+
             // Determine the min and max latitude and longitude from the bounds
             double minLat = bounds.Min(b => b.Lat);
             double maxLat = bounds.Max(b => b.Lat);
@@ -28,35 +29,39 @@ namespace KarttaBackEnd2.Server.Services
             // Convert vertical distance (10 meters) to degrees of latitude
             double verticalDistanceInDegrees = in_distance / 111320.0;
 
-            // Calculate horizontal distance based on speed and time (3 seconds)
-            double horizontalDistanceInMeters = speed * 15;
-            double horizontalDistanceInDegrees = horizontalDistanceInMeters / 111320.0;
+            // Ensure all horizontal routes have the same length
+            double horizontalDistanceInDegrees = (maxLng - minLng) / (bounds.Count - 1);
 
+            // Loop to generate waypoints with equal route lengths
             bool goingEast = true;
             for (double lat = minLat; lat <= maxLat; lat += verticalDistanceInDegrees)
             {
-                for (double lng = minLng; lng <= maxLng; lng += horizontalDistanceInDegrees)
+                double currentLng = goingEast ? minLng : maxLng;
+                double endLng = goingEast ? maxLng : minLng;
+                double step = goingEast ? horizontalDistanceInDegrees : -horizontalDistanceInDegrees;
+
+                while ((goingEast && currentLng <= endLng) || (!goingEast && currentLng >= endLng))
                 {
                     waypoints.Add(new Waypoint
                     {
                         Latitude = lat,
-                        Longitude = lng,
+                        Longitude = currentLng,
                         Altitude = altitude,
-                        Heading = goingEast ? 90 : -90, // 90 for east, -90 for west
+                        Heading = goingEast ? 90 : -90,  // 90 for east, -90 for west
                         GimbalAngle = angle,
                         Speed = speed,
-                        Id = id++,
-                        Action = allPointsAction
+                        Id = id++,  // Increment Id for each waypoint
+                        Action = allPointsAction  // Action specified in parameters
                     });
+                    currentLng += step;  // Move along the route by equal distance
                 }
-                // Toggle direction for the next row
-                goingEast = !goingEast;
+
+                goingEast = !goingEast;  // Alternate direction for next latitude level
             }
 
             return await Task.FromResult(waypoints);
         }
-
-        private double Distance(Coordinate point1, Coordinate point2)
+      private double Distance(Coordinate point1, Coordinate point2)
         {
             const double R = 6371e3; // Earth's radius in meters
             double lat1Rad = DegreesToRadians(point1.Lat);
