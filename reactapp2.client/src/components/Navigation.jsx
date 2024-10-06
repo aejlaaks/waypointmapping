@@ -1,9 +1,9 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
-const Navigation = () => {
+const Navigation = ({ isAuthenticated, isAdmin }) => {
     const navigate = useNavigate();
-    const isAuthenticated = !!localStorage.getItem('token');
+   // const isAuthenticated = !!localStorage.getItem('token');
 
     const handleLogout = () => {
         localStorage.removeItem('token');
@@ -21,6 +21,11 @@ const Navigation = () => {
                                 <li className="nav-item">
                                     <Link className="nav-link" to="/map">Map</Link>
                                 </li>
+                                {isAdmin && (
+                                    <li className="nav-item">
+                                        <Link className="nav-link" to="/admin">Admin</Link>
+                                    </li>
+                                )}
                                 <li className="nav-item">
                                     <button className="btn btn-link nav-link" onClick={handleLogout}>Logout</button>
                                 </li>
@@ -39,6 +44,7 @@ const Navigation = () => {
                 </div>
             </div>
         </nav>
+    
     );
 };
 

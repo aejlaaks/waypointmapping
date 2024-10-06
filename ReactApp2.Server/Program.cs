@@ -4,6 +4,7 @@ using KarttaBackEnd2.Server.Models;
 using KarttaBackEnd2.Server.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System.Globalization;
@@ -13,7 +14,7 @@ namespace ReactApp2.Server
 {
     public class Program
     {
-        public static void Main(string[] args)
+        public static async Task Main(string[] args)
         {
             var builder = WebApplication.CreateBuilder(args);
 
@@ -21,10 +22,16 @@ namespace ReactApp2.Server
             builder.Services.AddDbContext<ApplicationDbContext>(options =>
             options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-            builder.Services.AddIdentity<User, IdentityRole>()
-                .AddEntityFrameworkStores<ApplicationDbContext>();
+            builder.Services.AddIdentity<User, IdentityRole>(options =>
+            {
+                options.SignIn.RequireConfirmedEmail = true;
+            })
+            .AddEntityFrameworkStores<ApplicationDbContext>() // Add this line
+            .AddDefaultTokenProviders(); // Add this line
+
             builder.Services.AddScoped<WaypointService>();
             builder.Services.AddScoped<IKMZService, KMZService>();
+            builder.Services.AddTransient<IEmailSender, EmailSender>(); // Rekisteröi EmailSender-palvelu
 
             builder.Services.AddAuthentication(options =>
             {
@@ -62,6 +69,14 @@ namespace ReactApp2.Server
             builder.Services.AddControllers();
 
             var app = builder.Build();
+
+            // Create roles
+            using (var scope = app.Services.CreateScope())
+            {
+                var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
+                await EnsureRolesAsync(roleManager);
+            }
+
             app.UseCors("AllowAll");
             app.UseDefaultFiles();
            // app.UseStaticFiles();
@@ -78,6 +93,19 @@ namespace ReactApp2.Server
             app.MapFallbackToFile("/index.html");
 
             app.Run();
+        }
+
+        private static async Task EnsureRolesAsync(RoleManager<IdentityRole> roleManager)
+        {
+            string[] roleNames = { "Administrator", "User" };
+            foreach (var roleName in roleNames)
+            {
+                var roleExists = await roleManager.RoleExistsAsync(roleName);
+                if (!roleExists)
+                {
+                    await roleManager.CreateAsync(new IdentityRole(roleName));
+                }
+            }
         }
     }
 }

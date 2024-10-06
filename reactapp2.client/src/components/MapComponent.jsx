@@ -234,7 +234,9 @@ function MapComponent() {
         setDistanceBetweenPaths(newDistanceBetweenPaths);
         setSpeed(newSpeed);
     }, [altitude, overlap, focalLength, sensorWidth, sensorHeight, photoInterval]);
-  
+
+    
+
     // Function to update the info box listeners
     const infoBoxUpdateListeners = () => {
 
@@ -280,8 +282,6 @@ function MapComponent() {
             WaypointEditiorRemove(id);
         });
     };
-
-
 
     // Handle waypoint click event
     const handleWaypointClick = (marker) => {

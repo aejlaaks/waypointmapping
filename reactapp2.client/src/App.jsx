@@ -5,30 +5,40 @@ import Register from './components/Register';
 import MapComponent from './components/MapComponent';
 import Navigation from './components/Navigation';
 import 'bootstrap/dist/css/bootstrap.min.css';
+import AdminComponent from './components/AdminComponent';
+import { getUserRoles } from './services/api';
+
 
 const App = () => {
     // K‰yt‰ tilaa tarkistaaksesi, onko k‰ytt‰j‰ kirjautunut
     const [isAuthenticated, setIsAuthenticated] = useState(!!localStorage.getItem('token'));
+    const [userRoles, setUserRoles] = useState([]);
 
     // P‰ivitet‰‰n autentikointitilaa, jos token muuttuu
     useEffect(() => {
         const token = localStorage.getItem('token');
         setIsAuthenticated(!!token);  // Jos token on olemassa, k‰ytt‰j‰ on kirjautunut
+        if (token) {
+            // Fetch user roles if authenticated
+            getUserRoles().then(roles => {
+                setUserRoles(roles);
+            }).catch(error => {
+                console.error('Failed to fetch user roles:', error);
+            });
+        }
     }, []);
+
+    const isAdmin = userRoles.includes('Administrator');
 
     return (
         <Router>
-            <Navigation />
+            <Navigation isAuthenticated={isAuthenticated} isAdmin={isAdmin} />
             <div className="container-fluid">
                 <Routes>
                     <Route path="/register" element={<Register />} />
                     <Route path="/login" element={<Login setIsAuthenticated={setIsAuthenticated} />} />
-                    {/* Jos k‰ytt‰j‰ on kirjautunut sis‰‰n, ohjaa karttan‰kym‰‰n, muutoin kirjautumissivulle */}
-                    <Route
-                        path="/map"
-                        element={isAuthenticated ? <MapComponent /> : <Navigate to="/login" />}
-                    />
-                    {/* Jos k‰ytt‰j‰ menee tuntemattomaan reittiin, ohjaa joko kirjautumissivulle tai karttaan */}
+                    <Route path="/admin" element={isAuthenticated && isAdmin ? <AdminComponent /> : <Navigate to="/login" />} />
+                    <Route path="/map" element={isAuthenticated ? <MapComponent /> : <Navigate to="/login" />} />
                     <Route path="*" element={<Navigate to={isAuthenticated ? "/map" : "/login"} />} />
                 </Routes>
             </div>

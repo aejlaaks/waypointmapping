@@ -8,5 +8,7 @@ namespace KarttaBackEnd2.Server.Models
         // Esimerkiksi:
         public string FirstName { get; set; }
         public string LastName { get; set; }
+        public bool IsApproved { get; set; } // Uusi kenttä käyttäjän hyväksymiseen
+
     }
 }
