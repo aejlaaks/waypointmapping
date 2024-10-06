@@ -42,7 +42,7 @@ jobs:
   - task: CopyFiles@2
     displayName: 'Kopioi React-sovelluksen build-tulosteet'
     inputs:
-      SourceFolder: 'reactapp2.client/build'  # React-sovelluksen build-tulosteiden sijainti
+      SourceFolder: 'reactapp2.client/dist'  # React-sovelluksen build-tulosteiden sijainti
       Contents: '**'
       TargetFolder: '$(Build.ArtifactStagingDirectory)/react'  # Kohdekansio pipeline-artifakteille
 
