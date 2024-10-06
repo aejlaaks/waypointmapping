@@ -21,10 +21,13 @@ const App = () => {
         if (token) {
             // Fetch user roles if authenticated
             getUserRoles().then(roles => {
-                setUserRoles(roles);
+                setUserRoles(Array.isArray(roles) ? roles : []); // Ensure roles is an array
             }).catch(error => {
                 console.error('Failed to fetch user roles:', error);
+                setUserRoles([]); // Set to empty array on error
             });
+        } else {
+            setUserRoles([]); // Set to empty array if not authenticated
         }
     }, []);
 
