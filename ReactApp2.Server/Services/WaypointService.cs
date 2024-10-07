@@ -15,10 +15,9 @@ namespace KarttaBackEnd2.Server.Services
             int angle,
             double in_distance,
             List<Coordinate> bounds,  // Rectangle coordinates come from 'bounds'
-            List<CoordinateCircle> shapes,  // Circle coordinates come from 'shapes'
             string boundsType,
             int in_startingIndex,
-            double photoInterval = 0)  // Photo interval in seconds
+            double photoInterval = 3)  // Photo interval in seconds
         {
             var waypoints = new List<Waypoint>();
             int id = in_startingIndex;
@@ -31,8 +30,8 @@ namespace KarttaBackEnd2.Server.Services
                 double minLng = bounds.Min(b => b.Lng);
                 double maxLng = bounds.Max(b => b.Lng);
 
-                double verticalDistanceInDegrees = in_distance / 111320.0;
-                double horizontalDistanceInDegrees = (maxLng - minLng) / (bounds.Count - 1);
+                double verticalDistanceInDegrees = (speed * photoInterval) / 111320.0;
+                double horizontalDistanceInDegrees = (speed * photoInterval) / (111320.0 * Math.Cos(minLat * Math.PI / 180.0));
 
                 bool goingEast = true;
                 for (double lat = minLat; lat <= maxLat; lat += verticalDistanceInDegrees)
@@ -64,12 +63,12 @@ namespace KarttaBackEnd2.Server.Services
             else if (boundsType == "circle")
             {
                 // New logic for circle bounds using 'shapes' variable
-                foreach (var shape in shapes)
+                foreach (var bound in bounds)
                 {
                     // Assuming the shape contains center coordinates and radius for the circle
-                    double centerLat = shape.Lat;
-                    double centerLon = shape.Lng;
-                    double radius = shape.Radius;  // Radius in meters
+                    double centerLat = bound.Lat;
+                    double centerLon = bound.Lng;
+                    double radius = bound.Radius;  // Radius in meters
 
                     // Calculate the number of waypoints based on the circle's circumference and the distance per photo interval
                     double circumference = 2 * Math.PI * radius;  // Circumference of the circle
