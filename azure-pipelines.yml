@@ -60,7 +60,15 @@ jobs:
       sourceFolder: '$(Build.ArtifactStagingDirectory)/api'
       targetFolder: '/var/www/map/api'  # Kohdekansio API:lle
       cleanTargetFolder: true
-
+  - task: SSH@0
+    displayName: 'Unzip API on Linux VM'
+    inputs:
+      sshEndpoint: 'test'  # Use the appropriate service connection
+      runOptions: 'inline'
+      inline: |
+        cd /var/www/map/api
+        unzip ReactApp2.Server.zip -d /var/www/map/api
+        sudo rm ReactApp2.Server.zip  # Optional: Clean up the zip file
   - task: CopyFilesOverSSH@0
     displayName: 'Kopioi React-sovellus Linux-virtuaalikoneelle'
     inputs:
