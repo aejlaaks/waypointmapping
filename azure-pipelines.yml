@@ -28,6 +28,7 @@ jobs:
       mkdir -p reactapp2.client  # Ensure the directory exists
       rm -rf node_modules
       npm cache clean --force
+      rm package-lock.json
       echo "VITE_API_BASE_URL=${{ variables.VITE_API_BASE_URL }}" > reactapp2.client/.env.production
       npm install -g vite
       npm install
