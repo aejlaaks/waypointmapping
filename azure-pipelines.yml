@@ -22,7 +22,7 @@ jobs:
   - task: NodeTool@0
     displayName: 'Asenna Node.js'
     inputs:
-      versionSpec: '18.x'  # Vaihda tarvittaessa Node.js-versio
+      versionSpec: '16.x'  # Vaihda tarvittaessa Node.js-versio
   
   - script: |
       mkdir -p reactapp2.client  # Ensure the directory exists
