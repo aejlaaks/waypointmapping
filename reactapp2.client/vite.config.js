@@ -16,7 +16,7 @@ const certificateName = "reactapp2.client";
 const certFilePath = path.join(baseFolder, `${certificateName}.pem`);
 const keyFilePath = path.join(baseFolder, `${certificateName}.key`);
 
-if (!fs.existsSync(certFilePath) || !fs.existsSync(keyFilePath)) {
+if (env.NODE_ENV !== 'production' && !fs.existsSync(certFilePath) || !fs.existsSync(keyFilePath)) {
     if (0 !== child_process.spawnSync('dotnet', [
         'dev-certs',
         'https',
@@ -49,9 +49,9 @@ export default defineConfig({
             }
         },
         port: 5173,
-        https: {
+        https: env.NODE_ENV !== 'production' ? {
             key: fs.readFileSync(keyFilePath),
             cert: fs.readFileSync(certFilePath),
-        }
+        } : false
     }
 })
