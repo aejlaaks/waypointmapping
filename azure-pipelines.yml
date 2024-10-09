@@ -1,91 +1,96 @@
-
 trigger:
-- test  # Branch on 'test'
-
+  branches:
+    include:
+    - test
 pool:
   vmImage: 'ubuntu-latest'
-
 variables:
-  VITE_API_BASE_URL: ''
-  NODE_ENV: 'production'
+- name: VITE_API_BASE_URL
+  value: ''
+- name: NODE_ENV
+  value: 'production'
+stages:
+- stage: __default
+  jobs:
+  - job: Build_and_Deploy
+    displayName: 'Rakennus ja julkaisu'
+    steps:
+    - task: UseDotNet@2
+      displayName: 'Asenna .NET Core SDK'
+      inputs:
+        packageType: 'sdk'
+        version: '8.x'
+ 
 
-jobs:
-- job: Build_and_Deploy
-  displayName: 'Rakennus ja julkaisu'
-  steps:
-  - task: UseDotNet@2
-    displayName: 'Asenna .NET Core SDK'
-    inputs:
-      packageType: 'sdk'
-      version: '8.x'  # Vaihda tarvittaessa .NET-versio
-  - task: DotNetCoreCLI@2
-    displayName: 'Palauta riippuvuudet'
-    inputs:
-      command: 'restore'
-      projects: '**/ReactApp2.Server/*.csproj'
+    - task: DotNetCoreCLI@2
+      displayName: 'Rakenna ja julkaise ASP.NET Core API'
       
-  - task: DotNetCoreCLI@2
-    displayName: 'Rakenna ja julkaise ASP.NET Core API'
-    inputs:
-      command: 'publish'
-      projects: '**/ReactApp2.Server/*.csproj'
-      arguments: '--configuration Release --output $(Build.ArtifactStagingDirectory)/api'
+      inputs:
+      
+        command: 'publish'
+        projects: '**/ReactApp2.Server/*.csproj'
+        arguments: '--configuration Release --output $(Build.ArtifactStagingDirectory)/api'
+    - task: NodeTool@0
+      displayName: 'Asenna Node.js'
+      inputs:
+        versionSpec: '16.x'
+    - task: CmdLine@2
+      displayName: 'Rakenna React-sovellus'
+      inputs:
+        script: >
+          mkdir -p reactapp2.client  # Ensure the directory exists
 
-  - task: NodeTool@0
-    displayName: 'Asenna Node.js'
-    inputs:
-      versionSpec: '16.x'  # Vaihda tarvittaessa Node.js-versio
+          echo "VITE_API_BASE_URL=" > reactapp2.client/.env.production
 
-  - script: |
-      mkdir -p reactapp2.client  # Ensure the directory exists
-      echo "VITE_API_BASE_URL=${{ variables.VITE_API_BASE_URL }}" > reactapp2.client/.env.production
-      cat reactapp2.client/.env.production  # Verify the content of the .env.production file
-      npm install
-      npm run build
-    displayName: 'Rakenna React-sovellus'
-    workingDirectory: 'reactapp2.client'  # React-sovelluksen hakemisto
+          npm install --legacy-peer-deps
 
-  - task: CopyFiles@2
-    displayName: 'Kopioi React-sovelluksen build-tulosteet'
-    inputs:
-      SourceFolder: 'reactapp2.client/dist'  # React-sovelluksen build-tulosteiden sijainti
-      Contents: '**'
-      TargetFolder: '$(Build.ArtifactStagingDirectory)/react'  # Kohdekansio pipeline-artifakteille
 
-  - task: PublishBuildArtifacts@1
-    displayName: 'Julkaise rakennusartifaktit'
-    inputs:
-      pathToPublish: '$(Build.ArtifactStagingDirectory)'
-      artifactName: 'drop'
-      publishLocation: 'Container'
 
-  - task: CopyFilesOverSSH@0
-    displayName: 'Kopioi API Linux-virtuaalikoneelle'
-    inputs:
-      sshEndpoint: 'test'  # Käytä luomaasi service connectionin nimeä
-      sourceFolder: '$(Build.ArtifactStagingDirectory)/api'
-      targetFolder: '/var/www/map/api'  # Kohdekansio API:lle
-      cleanTargetFolder: true
-  - task: SSH@0
-    displayName: 'Unzip API on Linux VM'
-    inputs:
-      sshEndpoint: 'test'  # Use the appropriate service connection
-      runOptions: 'inline'
-      inline: |
-        cd /var/www/map/api
-        unzip ReactApp2.Server.zip -d /var/www/map/api
-        sudo rm ReactApp2.Server.zip  # Optional: Clean up the zip file
-  - task: CopyFilesOverSSH@0
-    displayName: 'Kopioi React-sovellus Linux-virtuaalikoneelle'
-    inputs:
-      sshEndpoint: 'test'  # Käytä luomaasi service connectionin nimeä
-      sourceFolder: '$(Build.ArtifactStagingDirectory)/react'
-      targetFolder: '/var/www/map/react'  # Kohdekansio React-sovellukselle
-      cleanTargetFolder: true
+          npm ci
 
-  - task: SSH@0
-    displayName: 'Käynnistä NGINX uudelleen'
-    inputs:
-      sshEndpoint: 'test'  # Käytä luomaasi service connectionin nimeä
-      runOptions: 'inline'
-      inline: 'sudo systemctl restart nginx'
+          export PATH=$(npm bin):$PATH
+
+          npm run build
+        workingDirectory: 'reactapp2.client'
+    - task: CopyFiles@2
+      displayName: 'Kopioi React-sovelluksen build-tulosteet'
+      inputs:
+        SourceFolder: 'reactapp2.client/dist'
+        Contents: '**'
+        TargetFolder: '$(Build.ArtifactStagingDirectory)/react'
+    - task: PublishBuildArtifacts@1
+      displayName: 'Julkaise rakennusartifaktit'
+      inputs:
+        pathToPublish: '$(Build.ArtifactStagingDirectory)'
+        artifactName: 'drop'
+        publishLocation: 'Container'
+    - task: CopyFilesOverSSH@0
+      displayName: 'Kopioi API Linux-virtuaalikoneelle'
+      inputs:
+        sshEndpoint: 'test'
+        sourceFolder: '$(Build.ArtifactStagingDirectory)/api'
+        targetFolder: '/var/www/map/api'
+        cleanTargetFolder: true
+    - task: SSH@0
+      displayName: 'Unzip API on Linux VM'
+      inputs:
+        sshEndpoint: 'test'
+        runOptions: 'inline'
+        inline: |
+          cd /var/www/map/api
+          unzip ReactApp2.Server.zip -d /var/www/map/api
+          sudo rm ReactApp2.Server.zip  # Optional: Clean up the zip file
+    - task: CopyFilesOverSSH@0
+      displayName: 'Kopioi React-sovellus Linux-virtuaalikoneelle'
+      inputs:
+        sshEndpoint: 'test'
+        sourceFolder: '$(Build.ArtifactStagingDirectory)/react'
+        targetFolder: '/var/www/map/react'
+        cleanTargetFolder: true
+    - task: SSH@0
+      displayName: 'Käynnistä NGINX uudelleen'
+      inputs:
+        sshEndpoint: 'test'
+        runOptions: 'inline'
+        inline: 'sudo systemctl restart nginx'
+
