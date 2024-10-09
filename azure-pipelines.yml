@@ -20,9 +20,19 @@ stages:
       inputs:
         packageType: 'sdk'
         version: '8.x'
+    - task: NodeTool@0
+      inputs:
+        versionSpec: '16.x' # tai haluamasi versio
+      displayName: 'Set Node.js version'
+
+    - script: npm ci
+      displayName: 'Install dependencies'
+
     - task: DotNetCoreCLI@2
       displayName: 'Rakenna ja julkaise ASP.NET Core API'
+      
       inputs:
+      
         command: 'publish'
         projects: '**/ReactApp2.Server/*.csproj'
         arguments: '--configuration Release --output $(Build.ArtifactStagingDirectory)/api'
