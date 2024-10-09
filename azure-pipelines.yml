@@ -25,7 +25,8 @@ stages:
         versionSpec: '16.x' # tai haluamasi versio
       displayName: 'Set Node.js version'
 
-    - script: npm ci
+    - script:  npm install --legacy-peer-deps
+
       displayName: 'Install dependencies'
 
     - task: DotNetCoreCLI@2
@@ -48,7 +49,8 @@ stages:
 
           echo "VITE_API_BASE_URL=" > reactapp2.client/.env.production
 
-          npm install
+          npm install --legacy-peer-deps
+
 
 
           npm ci
