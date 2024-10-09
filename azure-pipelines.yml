@@ -18,7 +18,12 @@ jobs:
     inputs:
       packageType: 'sdk'
       version: '8.x'  # Vaihda tarvittaessa .NET-versio
-      
+  - task: DotNetCoreCLI@2
+    displayName: 'Rakenna ja julkaise ASP.NET Core API'
+    inputs:
+      command: 'publish'
+      projects: '**/ReactApp2.Server/*.csproj'
+      arguments: '--configuration Release --output $(Build.ArtifactStagingDirectory)/api'
   - task: NodeTool@0
     displayName: 'Asenna Node.js'
     inputs:
@@ -34,12 +39,7 @@ jobs:
       npm run build
     displayName: 'Rakenna React-sovellus'
     workingDirectory: 'reactapp2.client'  # React-sovelluksen hakemisto
-  - task: DotNetCoreCLI@2
-    displayName: 'Rakenna ja julkaise ASP.NET Core API'
-    inputs:
-      command: 'publish'
-      projects: '**/ReactApp2.Server/*.csproj'
-      arguments: '--configuration Release --output $(Build.ArtifactStagingDirectory)/api'
+
 
 
   - task: CopyFiles@2
