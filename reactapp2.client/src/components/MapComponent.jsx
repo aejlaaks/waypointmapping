@@ -45,7 +45,20 @@ const topLeftButtonStyle = {
     borderRadius: '5px',
     cursor: 'pointer',
 };
-
+// Define the style for middle-top buttons
+const middleTopButtonStyle = {
+    position: 'absolute',
+    top: '10px',
+    left: '50%',
+    transform: 'translateX(-50%)',
+    zIndex: 1000,
+    padding: '10px 20px',
+    backgroundColor: '#17a2b8',
+    color: '#fff',
+    border: 'none',
+    borderRadius: '5px',
+    cursor: 'pointer',
+};
 const topRightButtonStyle = {
     position: 'absolute',
     top: '10px',
@@ -131,7 +144,7 @@ function MapComponent() {
     const [speed, setSpeed] = useState(2.5);
     const [angle, setAngle] = useState(-45);
     const [focalLength, setFocalLength] = useState(24); // Camera focal length in mm
-    const [sensorWidth, setSensorWidth] = useState(36); // Camera sensor width in mm
+    const [sensorWidth, setSensorWidth] = useState(6.4); // Camera sensor width in mm
     const [sensorHeight, setSensorHeight] = useState(24); // Camera sensor height in mm
     const [photoInterval, setPhotoInterval] = useState(2); // Photo interval in seconds
     const [overlap, setOverlap] = useState(80);
@@ -142,13 +155,12 @@ function MapComponent() {
     const [finalAction, setFinalAction] = useState('0');
     const [flipPath, setFlipPath] = useState(false);
     const [interval, setInterval] = useState(3);
-    const [inDistance, setInDistance] = useState(10); // New state variable for in_distance
+    const [inDistance, setInDistance] = useState(10,0); // New state variable for in_distance
     const [selectedShape, setSelectedShape] = useState(null);
     const [selectedMarker, setSelectedMarker] = useState(null);
     const [infoWindowPosition, setInfoWindowPosition] = useState(null);
     const [infoWindowVisible, setInfoWindowVisible] = useState(false);
     const [selectedWaypoint, setSelectedWaypoint] = useState(null);
-    const [distanceBetweenPaths, setDistanceBetweenPaths] = useState(0);
     // Integroi waypointit ja selectedShape tiloina
     const [waypoints, setWaypoints] = useState([]); // vastaa map.flags
     const drawingManagerRef = useRef(null);
@@ -231,7 +243,7 @@ function MapComponent() {
         const newDistanceBetweenPaths = calculateDistanceBetweenPaths(altitude, overlap, focalLength, sensorWidth);
         const newSpeed = calculateSpeed(altitude, overlap, focalLength, sensorHeight, photoInterval);
 
-        setDistanceBetweenPaths(newDistanceBetweenPaths);
+        setInDistance(parseFloat(newDistanceBetweenPaths));
         setSpeed(newSpeed);
     }, [altitude, overlap, focalLength, sensorWidth, sensorHeight, photoInterval]);
   
@@ -997,6 +1009,8 @@ function MapComponent() {
                         <button style={bottomLeftButtonStyle} onClick={submitFormFetch}>Generate waypoints</button>
                         <button style={bottomRightButtonStyle} onClick={generateKml}>Generate KML</button>
                         <button style={topRightButtonStyle} onClick={() => enableDrawingMode('rectangle')}>Draw Rectangle</button>
+                        <button style={middleTopButtonStyle} onClick={() => handleClearShapes()}>Tyhjennä piirrot</button>
+
                     </GoogleMap>
                 )}
             </div>

@@ -19,7 +19,7 @@ namespace KarttaBackEnd2.Server.DTOs
             public List<Coordinate> ?Bounds { get; set; }
             public string BoundsType { get; set; }
             public int StartingIndex { get; set; }
-            public int In_Distance { get; set; }
+            public double In_Distance { get; set; }
         [JsonProperty("allPointsAction")]
         public string? AllPointsAction { get; set; }
         public List<CoordinateCircle> Shapes { get; set; }
