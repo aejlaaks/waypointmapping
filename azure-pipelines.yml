@@ -18,7 +18,12 @@ jobs:
     inputs:
       packageType: 'sdk'
       version: '8.x'  # Vaihda tarvittaessa .NET-versio
-
+  - task: DotNetCoreCLI@2
+    displayName: 'Palauta riippuvuudet'
+    inputs:
+      command: 'restore'
+      projects: '**/ReactApp2.Server/*.csproj'
+      
   - task: DotNetCoreCLI@2
     displayName: 'Rakenna ja julkaise ASP.NET Core API'
     inputs:
