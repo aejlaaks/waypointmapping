@@ -8,7 +8,7 @@ namespace KarttaBackEnd2.Server.Services
     public class WaypointService : IWaypointService
     {
         // Method to generate waypoints
-        public async Task<List<Waypoint>> GenerateWaypointsAsync(string allPointsAction,
+        public async Task<List<Waypoint>> GenerateWaypointsAsync(string allPointsAction ,
             int unitType_in,
             double altitude,
             double speed,  // Speed in meters/second
@@ -21,6 +21,7 @@ namespace KarttaBackEnd2.Server.Services
         {
             var waypoints = new List<Waypoint>();
             int id = in_startingIndex;
+            allPointsAction = "takePhoto";
 
             if (boundsType == "rectangle")
             {

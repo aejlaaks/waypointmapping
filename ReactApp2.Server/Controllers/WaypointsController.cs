@@ -32,7 +32,8 @@ namespace KarttaBackEnd2.Server.Controllers
                     request.In_Distance,
                     request.Bounds,
                     request.BoundsType,
-                    request.StartingIndex);
+                    request.StartingIndex,
+                    request.Interval);
 
                 return Ok(result);
             

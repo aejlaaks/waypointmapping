@@ -145,7 +145,7 @@ function MapComponent() {
     const [angle, setAngle] = useState(-45);
     const [focalLength, setFocalLength] = useState(24); // Camera focal length in mm
     const [sensorWidth, setSensorWidth] = useState(6.4); // Camera sensor width in mm
-    const [sensorHeight, setSensorHeight] = useState(24); // Camera sensor height in mm
+    const [sensorHeight, setSensorHeight] = useState(4.8); // Camera sensor height in mm
     const [photoInterval, setPhotoInterval] = useState(2); // Photo interval in seconds
     const [overlap, setOverlap] = useState(80);
     const [bounds, setBounds] = useState('');

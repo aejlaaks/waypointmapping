@@ -16,6 +16,7 @@ namespace KarttaBackEnd2.Server.DTOs
             public double Speed { get; set; }
             public int Angle { get; set; }
             public double Distance { get; set; }
+            public double Interval { get; set; }
             public List<Coordinate> ?Bounds { get; set; }
             public string BoundsType { get; set; }
             public int StartingIndex { get; set; }
