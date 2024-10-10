@@ -50,7 +50,7 @@ stages:
     - task: CopyFiles@2
       displayName: 'Kopioi React-sovelluksen build-tulosteet'
       inputs:
-        SourceFolder: 'reactapp2.client/dist'
+        SourceFolder: 'reactapp2.client/build'
         Contents: '**'
         TargetFolder: '$(Build.ArtifactStagingDirectory)/react'
     - task: PublishBuildArtifacts@1
