@@ -4,7 +4,7 @@ namespace KarttaBackEnd2.Server.Interfaces
 {
     public interface IKMZService
     {
-        Task<byte[]> GenerateKmzAsync(FlyToWaylineRequest request);
+        Task<byte[]> GenerateKmzAsync(FlyToWaylineRequest request, bool flip);
     }
 
 }

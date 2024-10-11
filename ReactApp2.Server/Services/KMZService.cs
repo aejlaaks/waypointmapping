@@ -14,11 +14,15 @@ namespace KarttaBackEnd2.Server.Services
         private readonly string _templateKmlPath = "/mnt/data/template.kml";
         private readonly string _waylinesWpmlPath = "/mnt/data/waylines.wpml";
 
-        public async Task<byte[]> GenerateKmzAsync(FlyToWaylineRequest request)
+        public async Task<byte[]> GenerateKmzAsync(FlyToWaylineRequest request, bool flip)
         {
             // If required parameters are missing, use default values from the template and waylines files
             await SetDefaultValuesAsync(request);
-
+            
+            if (flip)
+            {
+                request.Waypoints = await FlipDroneDirectionAsync(request.Waypoints);
+            }
             // Generate KML
             string kmlContent = await GenerateKmlAsync(request);
 
@@ -224,6 +228,24 @@ namespace KarttaBackEnd2.Server.Services
             wpmlContent.AppendLine(@"</kml>");
 
             return await Task.FromResult(wpmlContent.ToString());
+        }
+
+        // New method to flip the drone direction
+        public async Task<List<WaypointGen>> FlipDroneDirectionAsync(List<WaypointGen> waypoints)
+        {
+            if (waypoints.Count == 0)
+                return waypoints;
+
+            // Calculate midpoint
+            int midPoint = waypoints.Count / 2;
+
+            for (int i = midPoint; i < waypoints.Count; i++)
+            {
+                // Flip the direction of the drone by changing the heading
+                waypoints[i].WaypointHeadingAngle = (waypoints[i].WaypointHeadingAngle == "90") ? "-90" : "90";
+            }
+
+            return await Task.FromResult(waypoints);
         }
 
         private async Task<byte[]> CreateKmzAsync(string kmlContent, string wpmlContent)
