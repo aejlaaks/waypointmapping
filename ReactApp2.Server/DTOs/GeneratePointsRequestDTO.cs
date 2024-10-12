@@ -24,6 +24,7 @@ namespace KarttaBackEnd2.Server.DTOs
         [JsonProperty("allPointsAction")]
         public string? AllPointsAction { get; set; }
         public List<CoordinateCircle> Shapes { get; set; }
+        public bool useEndpointsOnly { get; set; }
     }
 
       

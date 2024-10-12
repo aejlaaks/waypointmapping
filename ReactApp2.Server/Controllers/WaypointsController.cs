@@ -33,7 +33,8 @@ namespace KarttaBackEnd2.Server.Controllers
                     request.Bounds,
                     request.BoundsType,
                     request.StartingIndex,
-                    request.Interval);
+                    request.Interval,
+                    request.useEndpointsOnly);
 
                 return Ok(result);
             

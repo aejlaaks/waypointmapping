@@ -5,12 +5,13 @@ namespace KarttaBackEnd2.Server.Models
 
     public class FlyToWaylineRequest
     {
-        public string FlyToWaylineMode { get; set; }
-        public string FinishAction { get; set; }
-        public string ExitOnRCLost { get; set; }
-        public string ExecuteRCLostAction { get; set; }
+        public string ?FlyToWaylineMode { get; set; }
+        public string ?FinishAction { get; set; }
+        public bool Flip { get; set; }
+        public string ?ExitOnRCLost { get; set; }
+        public string ?ExecuteRCLostAction { get; set; }
         public double GlobalTransitionalSpeed { get; set; }
-        public DroneInfo DroneInfo { get; set; }
+        public DroneInfo ? DroneInfo { get; set; }
         public List<WaypointGen> Waypoints { get; set; }
     }
 

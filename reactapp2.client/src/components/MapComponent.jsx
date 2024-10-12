@@ -147,7 +147,9 @@ function MapComponent() {
     const [sensorWidth, setSensorWidth] = useState(6.4); // Camera sensor width in mm
     const [sensorHeight, setSensorHeight] = useState(4.8); // Camera sensor height in mm
     const [photoInterval, setPhotoInterval] = useState(2); // Photo interval in seconds
-    const [overlap, setOverlap] = useState(80);
+    const [overlap, setOverlap] = useState(83);
+    const [useEndpointsOnly, setUseEndpointsOnly] = useState(true);  // Add this state to control the switch
+
     const [bounds, setBounds] = useState('');
     const [boundsType, setBoundsType] = useState(["rectangle"]);
     const [startingIndex, setStartingIndex] = useState(1);
@@ -236,6 +238,10 @@ function MapComponent() {
         if (drawingManagerRef.current) {
             drawingManagerRef.current.setDrawingMode(null); // Stop drawing mode
         }
+    };
+
+    const handleToggleUseEndpointsOnly = () => {
+        setUseEndpointsOnly(prev => !prev);  // Toggle the value
     };
 
     // Recalculate when overlap changes
@@ -650,7 +656,7 @@ function MapComponent() {
                 ExecuteHeight: wp.altitude,
                 WaypointSpeed: wp.speed,
                 WaypointHeadingMode: "smoothTransition",
-                WaypointHeadingAngle: wp.Heading,
+                WaypointHeadingAngle: wp.angle,
                 WaypointHeadingPathMode: "followBadArc",
                 WaypointTurnMode: "toPointAndStopWithContinuityCurvature",
                 WaypointTurnDampingDist: "0",
@@ -715,11 +721,12 @@ function MapComponent() {
             unitType: unitType,
             altitude: altitude,
             speed: speed,
+            useEndpointsOnly: useEndpointsOnly,  // Include the useEndpointsOnly parameter
             overlap: overlap,
             allPointsAction: allPointsAction,
             finalAction: finalAction,
             flipPath: flipPath,
-            interval: interval,
+            interval: photoInterval,
             in_distance: inDistance,
             angle:angle,
 
@@ -925,6 +932,15 @@ function MapComponent() {
                     />
                 </label>
                 <label>
+                    Use Endpoints Only with waypoints
+                    <input
+                        type="checkbox"  // Switch for controlling useEndpointsOnly
+                        checked={useEndpointsOnly}
+                        onChange={handleToggleUseEndpointsOnly}
+                        style={inputStyle}
+                    />
+                </label>
+                <label>
                     Photo Interval
                     <input
                         type="number"
@@ -944,16 +960,7 @@ function MapComponent() {
                         style={inputStyle}
                     />
                 </label>
-                <label>
-                    Interval
-                    <input
-                        type="number"
-                        placeholder="Interval"
-                        value={interval}
-                        onChange={(e) => setInterval(e.target.value)}
-                        style={inputStyle}
-                    />
-                </label>
+              
                 <label>
                     In Distance
                     <input

@@ -33,7 +33,7 @@ namespace ReactApp2.Server
             builder.Services.AddScoped<IKMZService, KMZService>();
             builder.Services.AddTransient<IEmailSender, EmailSender>(); // Rekisteröi EmailSender-palvelu
 
-            builder.Services.AddAuthentication(options =>
+            _ = builder.Services.AddAuthentication(options =>
             {
                 options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
                 options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;

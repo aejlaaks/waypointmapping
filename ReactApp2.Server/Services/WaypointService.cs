@@ -17,7 +17,9 @@ namespace KarttaBackEnd2.Server.Services
             List<Coordinate> bounds,  // Rectangle coordinates come from 'bounds'
             string boundsType,
             int in_startingIndex,
-            double photoInterval = 3)  // Photo interval in seconds
+            double photoInterval = 3,
+            bool useEndpointsOnly = false  // New parameter to control endpoint-only logic
+)  // Photo interval in seconds
         {
             var waypoints = new List<Waypoint>();
             int id = in_startingIndex;
@@ -25,64 +27,136 @@ namespace KarttaBackEnd2.Server.Services
 
             if (boundsType == "rectangle")
             {
-                // Existing logic for rectangular bounds using 'bounds' variable
-                double minLat = bounds.Min(b => b.Lat);
-                double maxLat = bounds.Max(b => b.Lat);
-                double minLng = bounds.Min(b => b.Lng);
-                double maxLng = bounds.Max(b => b.Lng);
+                // Määritetään suorakulmion rajat
+                double minLat = bounds.Min(b => b.Lat);  // Min latitude (etelä)
+                double maxLat = bounds.Max(b => b.Lat);  // Max latitude (pohjoinen)
+                double minLng = bounds.Min(b => b.Lng);  // Min longitude (länsi)
+                double maxLng = bounds.Max(b => b.Lng);  // Max longitude (itä)
 
-                double verticalDistanceInDegrees = (speed * photoInterval) / 111320.0;
-                double horizontalDistanceInDegrees = (speed * photoInterval) / (111320.0 * Math.Cos(minLat * Math.PI / 180.0));
+                // Muunnetaan in_distance metreinä asteiksi (latitude-arvot)
+                double latDistanceInDegrees = in_distance / 111320.0;  // 1 leveysaste = 111320 metriä
+                double currentAltitude = altitude;  // Korkeus pysyy vakiona
+                bool goingEast = true;  // Pitää yllä suunnan (itään tai länteen)
 
-                bool goingEast = true;
-                for (double lat = minLat; lat <= maxLat; lat += verticalDistanceInDegrees)
+                // Jos käytetään useEndpointsOnly-logiikkaa, laitetaan se omaan silmukkaan
+                if (useEndpointsOnly)
                 {
-                    double currentLng = goingEast ? minLng : maxLng;
-                    double endLng = goingEast ? maxLng : minLng;
-                    double step = goingEast ? horizontalDistanceInDegrees : -horizontalDistanceInDegrees;
-
-                    while ((goingEast && currentLng <= endLng) || (!goingEast && currentLng >= endLng))
+                    for (double lat = minLat; lat <= maxLat; lat += latDistanceInDegrees)
                     {
+                        // 1. Lisätään lähtöpiste (vaakasuuntainen piste) koordinaattien mukaan
                         waypoints.Add(new Waypoint
                         {
                             Latitude = lat,
-                            Longitude = currentLng,
-                            Altitude = altitude,
-                            Heading = goingEast ? 90 : -90,  // 90 for east, -90 for west
+                            Longitude = minLng,  // Länsi (min longitude)
+                            Altitude = currentAltitude,  // Sama altitude
+                            Heading = 90,  // Itä
                             GimbalAngle = angle,
                             Speed = speed,
-                            Id = id++,  // Increment Id for each waypoint
-                            Action = allPointsAction
+                            Id = id++,
+                            Action = allPointsAction  // Oletusarvoisesti otetaan kuva
                         });
 
-                        currentLng += step;
-                    }
+                        // 2. Lisätään päätepiste (longitude = maxLng)
+                        waypoints.Add(new Waypoint
+                        {
+                            Latitude = lat,  // Sama latitude
+                            Longitude = maxLng,  // Itä (max longitude)
+                            Altitude = currentAltitude,  // Sama altitude
+                            Heading = -90,  // Länsi
+                            GimbalAngle = angle,
+                            Speed = speed,
+                            Id = id++,
+                            Action = allPointsAction  // Oletusarvoisesti otetaan kuva
+                        });
 
-                    goingEast = !goingEast; // Alternate the direction
+                        // Päivitetään seuraavan vaiheen siirto, mutta **lisätään vain yksi piste korkeussuunnassa**
+                        lat += latDistanceInDegrees;  // Siirrytään latitude-suunnassa
+                        if (lat <= maxLat)
+                        {
+                            // 3. Siirrytään korkeussuunnassa (latitude) ja lisätään vain yksi piste
+                            waypoints.Add(new Waypoint
+                            {
+                                Latitude = lat,  // Päivitetty latitude
+                                Longitude = maxLng,  // Sama longitude (maxLng)
+                                Altitude = currentAltitude,  // Sama altitude (korkeus)
+                                Heading = 90,  // Itä
+                                GimbalAngle = angle,
+                                Speed = speed,
+                                Id = id++,
+                                Action = allPointsAction  // Oletusarvoisesti otetaan kuva
+                            });
+
+                            // 4. Takaisinpäin liike (länteen) ja lisätään vain yksi piste
+                            waypoints.Add(new Waypoint
+                            {
+                                Latitude = lat,  // Sama latitude (palaamme samaan korkeuteen)
+                                Longitude = minLng,  // Takaisin länteen (minLng)
+                                Altitude = currentAltitude,  // Sama altitude
+                                Heading = -90,  // Länsi
+                                GimbalAngle = angle,
+                                Speed = speed,
+                                Id = id++,
+                                Action = allPointsAction  // Oletusarvoisesti otetaan kuva
+                            });
+                        }
+
+                        goingEast = !goingEast;  // Vaihdetaan suunta seuraavalle kierrokselle
+                    }
+                }
+                else
+                {
+                    // Normaalilogiikka: Käytetään omaa silmukkaa, ei tehdä korkeussuunnan muutoksia tässä
+                    for (double lat = minLat; lat <= maxLat; lat += (speed * photoInterval) / 111320.0)
+                    {
+                        double currentLng = goingEast ? minLng : maxLng;
+                        double endLng = goingEast ? maxLng : minLng;
+                        double step = goingEast ? (speed * photoInterval) / (111320.0 * Math.Cos(lat * Math.PI / 180.0))
+                                                : -(speed * photoInterval) / (111320.0 * Math.Cos(lat * Math.PI / 180.0));
+
+                        // Liikutaan vaakasuunnassa päätepisteiden välillä
+                        while ((goingEast && currentLng <= endLng) || (!goingEast && currentLng >= endLng))
+                        {
+                            waypoints.Add(new Waypoint
+                            {
+                                Latitude = lat,
+                                Longitude = currentLng,
+                                Altitude = currentAltitude,  // Pidä korkeus samana vaakasuunnassa
+                                Heading = goingEast ? 90 : -90,  // Itä-länsi suunta
+                                GimbalAngle = angle,
+                                Speed = speed,
+                                Id = id++,
+                                Action = allPointsAction  // Oletusarvoisesti otetaan kuva
+                            });
+
+                            currentLng += step;  // Päivitetään pituusaste seuraavaksi askeleeksi
+                        }
+
+                        // Päivitetään korkeus, kun saavutaan päätepisteeseen
+                        currentAltitude += in_distance;
+                        goingEast = !goingEast;
+                    }
                 }
             }
             else if (boundsType == "circle")
             {
-                // New logic for circle bounds using 'shapes' variable
+                // Ympyräreittien generointi, ei käytetä in_distancea korkeuden muuttamiseen
                 foreach (var bound in bounds)
                 {
-                    // Assuming the shape contains center coordinates and radius for the circle
                     double centerLat = bound.Lat;
                     double centerLon = bound.Lng;
-                    double radius = bound.Radius;  // Radius in meters
+                    double radius = bound.Radius;
 
-                    // Calculate the number of waypoints based on the circle's circumference and the distance per photo interval
-                    double circumference = 2 * Math.PI * radius;  // Circumference of the circle
-                    double distancePerPhoto = speed * photoInterval;  // Distance traveled per photo interval
-                    int numberOfWaypoints = (int)(circumference / distancePerPhoto);  // Calculate number of waypoints
+                    double circumference = 2 * Math.PI * radius;
+                    double distancePerPhoto = speed * photoInterval;
+                    int numberOfWaypoints = (int)(circumference / distancePerPhoto);
 
-                    // Generate waypoints for the circle
+                    // Luo ympyrän reittipisteet samalla korkeudella
                     var circleWaypoints = await GenerateWaypointsForCircleAsync(centerLat, centerLon, radius, altitude, speed, allPointsAction, id, photoInterval);
                     waypoints.AddRange(circleWaypoints);
                 }
             }
 
-            return await Task.FromResult(waypoints);  // Return wrapped in Task
+            return await Task.FromResult(waypoints);
         }
 
         // Method to generate waypoints for a circle

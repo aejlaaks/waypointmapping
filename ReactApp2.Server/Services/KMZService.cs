@@ -14,12 +14,12 @@ namespace KarttaBackEnd2.Server.Services
         private readonly string _templateKmlPath = "/mnt/data/template.kml";
         private readonly string _waylinesWpmlPath = "/mnt/data/waylines.wpml";
 
-        public async Task<byte[]> GenerateKmzAsync(FlyToWaylineRequest request, bool flip)
+        public async Task<byte[]> GenerateKmzAsync(FlyToWaylineRequest request)
         {
             // If required parameters are missing, use default values from the template and waylines files
             await SetDefaultValuesAsync(request);
-            
-            if (flip)
+            request.Flip = true;
+            if (request.Flip)
             {
                 request.Waypoints = await FlipDroneDirectionAsync(request.Waypoints);
             }
@@ -167,7 +167,7 @@ namespace KarttaBackEnd2.Server.Services
                 var headingMode = waypoint.WaypointHeadingMode ?? "followWayline";
                 var headingAngle = waypoint.WaypointHeadingAngle ?? "0";
                 var waypointPoiPoint = waypoint.WaypointPoiPoint ?? "0.000000,0.000000,0.000000";
-                var headingAngleEnable = waypoint.WaypointHeadingAngleEnable ?? "0";
+                var headingAngleEnable = waypoint.WaypointHeadingAngleEnable ?? 1;
                 var pathMode = waypoint.WaypointHeadingPathMode ?? "followBadArc";
                 var turnMode = waypoint.WaypointTurnMode ?? "toPointAndPassWithContinuityCurvature";
                 var dampingDist = waypoint.WaypointTurnDampingDist.ToString(CultureInfo.InvariantCulture) ?? "0";
@@ -236,13 +236,13 @@ namespace KarttaBackEnd2.Server.Services
             if (waypoints.Count == 0)
                 return waypoints;
 
-            // Calculate midpoint
+            // Calculate midpoint of the waypoints list
             int midPoint = waypoints.Count / 2;
 
+            // Iterate from the midpoint to the end and flip the drone's heading to face south (180°)
             for (int i = midPoint; i < waypoints.Count; i++)
             {
-                // Flip the direction of the drone by changing the heading
-                waypoints[i].WaypointHeadingAngle = (waypoints[i].WaypointHeadingAngle == "90") ? "-90" : "90";
+                waypoints[i].WaypointHeadingAngle = 180; // Set heading to 180° (facing south)
             }
 
             return await Task.FromResult(waypoints);
