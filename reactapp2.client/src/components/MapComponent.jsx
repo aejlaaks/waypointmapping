@@ -4,8 +4,11 @@ import { GoogleMap, useJsApiLoader, DrawingManager, InfoWindow, Marker, Polyline
 import WaypointInfoBox from './WaypointInfoBox';
 import axios from 'axios'; // Import axios for making API calls
 import "../App.css";
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL;;
 
+// Valitse API-URL ympäristön perusteella
+const apiBaseUrl = process.env.NODE_ENV === 'production'
+    ? process.env.REACT_APP_API_BASE_URL // Tuotantoympäristössä käytetään React-skriptin ympäristömuuttujaa
+    : import.meta.env.VITE_API_BASE_URL; // Kehitysympäristössä käytetään Viten ympäristömuuttujaa
 
 const libraries = ['drawing', 'places'];
 
@@ -250,18 +253,34 @@ function MapComponent() {
         setUseEndpointsOnly(prev => !prev);  // Toggle the value
     };
 
-    // Recalculate when overlap changes
     useEffect(() => {
         const altitudeNum = parseFloat(altitude);
         const overlapNum = parseFloat(overlap);
-        const fovNum = 47; // Use FOV of 47 degrees to match desired in_distance
+        const focalLengthNum = parseFloat(focalLength);
+        const sensorWidthNum = parseFloat(sensorWidth);
+        const sensorHeightNum = parseFloat(sensorHeight);
+        const intervalNum = parseFloat(interval); // Päivitetty muuttujan nimi
 
-        const newDistanceBetweenPaths = calculateDistanceBetweenPaths(altitudeNum, overlapNum, fovNum);
-        const newSpeed = parseFloat(speed); // Use given speed
+        // Lasketaan vaakasuuntainen ja pystysuuntainen FOV radiaaneina
+        const fovH = 2 * Math.atan(sensorWidthNum / (2 * focalLengthNum));
+        const fovV = 2 * Math.atan(sensorHeightNum / (2 * focalLengthNum));
 
-        setInDistance(newDistanceBetweenPaths.toFixed(1));
-        setSpeed(newSpeed.toFixed(1));
-    }, [altitude, overlap, focalLength, sensorWidth, sensorHeight, photoInterval]);
+        // Lasketaan maassa näkyvät mitat
+        const groundWidth = 2 * altitudeNum * Math.tan(fovH / 2);
+        const groundHeight = 2 * altitudeNum * Math.tan(fovV / 2);
+
+        // Lasketaan in_distance
+        const inDistance = groundWidth * (1 - overlapNum / 100);
+        setInDistance(inDistance.toFixed(1));
+
+        // Lasketaan valokuvien välinen etäisyys
+        const distanceBetweenPhotos = groundHeight * (1 - overlapNum / 100);
+
+        // Lasketaan nopeus
+        const speedCalculated = distanceBetweenPhotos / intervalNum; // Päivitetty muuttujan nimi
+        setSpeed(speedCalculated.toFixed(1));
+
+    }, [altitude, overlap, focalLength, sensorWidth, sensorHeight, interval]); // 
   
     // Function to update the info box listeners
     const infoBoxUpdateListeners = () => {
