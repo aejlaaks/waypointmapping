@@ -42,12 +42,7 @@ stages:
 
           echo "VITE_API_BASE_URL=" > reactapp2.client/.env.production
 
-          npm install --legacy-peer-deps
-
-
-
-          npm ci
-
+          npm install
           export PATH=$(npm bin):$PATH
 
           npm run build
@@ -55,7 +50,7 @@ stages:
     - task: CopyFiles@2
       displayName: 'Kopioi React-sovelluksen build-tulosteet'
       inputs:
-        SourceFolder: 'reactapp2.client/dist'
+        SourceFolder: 'reactapp2.client/build'
         Contents: '**'
         TargetFolder: '$(Build.ArtifactStagingDirectory)/react'
     - task: PublishBuildArtifacts@1
