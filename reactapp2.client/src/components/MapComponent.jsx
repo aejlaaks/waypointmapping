@@ -223,15 +223,21 @@ function MapComponent() {
     }, [waypoints]);
 
     // Function to calculate Distance Between Paths
-    const calculateDistanceBetweenPaths = (altitude, overlap, focalLength, sensorWidth) => {
-        const fovWidth = 2 * (altitude * Math.tan(Math.atan(sensorWidth / (2 * focalLength))));
-        return fovWidth * (1 - overlap / 100);
+    const calculateDistanceBetweenPaths = (altitude, overlap, fov) => {
+        const overlapFactor = (1 - overlap / 100);
+        const fovRadians = (fov / 2) * (Math.PI / 180); // Muutetaan FOV radiaaneiksi
+        const groundWidth = 2 * altitude * Math.tan(fovRadians);
+        const newDistance = groundWidth * overlapFactor;
+        return newDistance;
     };
 
     // Function to calculate Speed
     const calculateSpeed = (altitude, overlap, focalLength, sensorHeight, photoInterval) => {
-        const fovHeight = 2 * (altitude * Math.tan(Math.atan(sensorHeight / (2 * focalLength))));
-        return (fovHeight * (1 - overlap / 100)) / photoInterval;
+        const overlapFactor = (1 - overlap / 100);
+        const vfovRadians = 2 * Math.atan(sensorHeight / (2 * focalLength));
+        const groundHeight = 2 * altitude * Math.tan(vfovRadians / 2);
+        const speed = (groundHeight * overlapFactor) / photoInterval;
+        return speed;
     };
 
     const stopDrawing = () => {
@@ -246,11 +252,15 @@ function MapComponent() {
 
     // Recalculate when overlap changes
     useEffect(() => {
-        const newDistanceBetweenPaths = calculateDistanceBetweenPaths(altitude, overlap, focalLength, sensorWidth);
-        const newSpeed = calculateSpeed(altitude, overlap, focalLength, sensorHeight, photoInterval);
+        const altitudeNum = parseFloat(altitude);
+        const overlapNum = parseFloat(overlap);
+        const fovNum = 47; // Use FOV of 47 degrees to match desired in_distance
 
-        setInDistance(parseFloat(newDistanceBetweenPaths));
-        setSpeed(newSpeed);
+        const newDistanceBetweenPaths = calculateDistanceBetweenPaths(altitudeNum, overlapNum, fovNum);
+        const newSpeed = parseFloat(speed); // Use given speed
+
+        setInDistance(newDistanceBetweenPaths.toFixed(1));
+        setSpeed(newSpeed.toFixed(1));
     }, [altitude, overlap, focalLength, sensorWidth, sensorHeight, photoInterval]);
   
     // Function to update the info box listeners
@@ -645,6 +655,9 @@ function MapComponent() {
             ExitOnRCLost: "executeLostAction",
             ExecuteRCLostAction: "goBack",
             GlobalTransitionalSpeed: speed,
+            useEndpointsOnly: useEndpointsOnly,
+            interval:interval,
+
             DroneInfo: {
                 DroneEnumValue: 1,
                 DroneSubEnumValue: 1
@@ -660,7 +673,7 @@ function MapComponent() {
                 WaypointHeadingPathMode: "followBadArc",
                 WaypointTurnMode: "toPointAndStopWithContinuityCurvature",
                 WaypointTurnDampingDist: "0",
-                Action: wp.action
+                Action: wp.action,
             })),
             ActionGroups: [] // Add your action groups here if any
         };

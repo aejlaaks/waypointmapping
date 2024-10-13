@@ -1,8 +1,5 @@
 ﻿using KarttaBackEnd2.Server.Interfaces;
 using KarttaBackEnd2.Server.Models;
-using SharpKml.Base;
-using SharpKml.Dom;
-using SharpKml.Engine;
 using System.Globalization;
 using System.IO.Compression;
 using System.Xml.Linq;
@@ -11,25 +8,27 @@ namespace KarttaBackEnd2.Server.Services
 {
     public class KMZService : IKMZService
     {
-        private readonly string _templateKmlPath = "/mnt/data/template.kml";
-        private readonly string _waylinesWpmlPath = "/mnt/data/waylines.wpml";
+        private static readonly XNamespace kmlNs = "http://www.opengis.net/kml/2.2";   // KML nimitila
+        private static readonly XNamespace wpmlNs = "http://www.dji.com/wpmz/1.0.2";   // WPML nimitila
 
         public async Task<byte[]> GenerateKmzAsync(FlyToWaylineRequest request)
         {
-            // If required parameters are missing, use default values from the template and waylines files
+            // Aseta oletusarvot tarvittaessa
             await SetDefaultValuesAsync(request);
-            request.Flip = true;
+
+            // Tarkista ja käännä reitti, jos Flip on asetettu
             if (request.Flip)
             {
                 request.Waypoints = await FlipDroneDirectionAsync(request.Waypoints);
             }
-            // Generate KML
+
+            // Generoi KML sisällön ohjelmallisesti
             string kmlContent = await GenerateKmlAsync(request);
 
-            // Generate WPML
+            // Generoi WPML sisällön ohjelmallisesti
             string wpmlContent = await GenerateWpmlAsync(request);
 
-            // Create KMZ (ZIP) file
+            // Luo KMZ (ZIP) tiedosto KML- ja WPML-tiedostoilla
             return await CreateKmzAsync(kmlContent, wpmlContent);
         }
 
@@ -37,129 +36,114 @@ namespace KarttaBackEnd2.Server.Services
         {
             if (request.Waypoints == null || !request.Waypoints.Any())
             {
-                request.Waypoints = await GetDefaultWaypointsAsync();
+                request.Waypoints = GetDefaultWaypoints();
             }
 
-            if (string.IsNullOrEmpty(request.FlyToWaylineMode))
-            {
-                request.FlyToWaylineMode = "safely"; // Default value from template file
-            }
-
-            if (string.IsNullOrEmpty(request.FinishAction))
-            {
-                request.FinishAction = "noAction"; // Default value from template file
-            }
-
-            if (string.IsNullOrEmpty(request.ExitOnRCLost))
-            {
-                request.ExitOnRCLost = "executeLostAction"; // Default value from template file
-            }
-
-            if (string.IsNullOrEmpty(request.ExecuteRCLostAction))
-            {
-                request.ExecuteRCLostAction = "hover"; // Default value from template file
-            }
-
-            if (request.GlobalTransitionalSpeed <= 0)
-            {
-                request.GlobalTransitionalSpeed = 2.5; // Default value from template file
-            }
+            // Aseta oletusarvot tarvittaessa
+            request.FlyToWaylineMode ??= "safely";
+            request.FinishAction ??= "noAction";
+            request.ExitOnRCLost ??= "executeLostAction";
+            request.ExecuteRCLostAction ??= "hover";
+            request.GlobalTransitionalSpeed = request.GlobalTransitionalSpeed <= 0 ? 2.5 : request.GlobalTransitionalSpeed;
 
             if (request.DroneInfo == null)
             {
                 request.DroneInfo = new DroneInfo
                 {
-                    DroneEnumValue = 68, // Default from template file
-                    DroneSubEnumValue = 0 // Default from template file
+                    DroneEnumValue = 68,  // Oletusarvo
+                    DroneSubEnumValue = 0  // Oletusarvo
                 };
             }
         }
 
-        private async Task<List<WaypointGen>> GetDefaultWaypointsAsync()
+        private List<WaypointGen> GetDefaultWaypoints()
         {
-            var waypoints = new List<WaypointGen>();
-            var lines = await File.ReadAllLinesAsync(_waylinesWpmlPath);
-            foreach (var line in lines)
+            // Oletusreittipisteet
+            return new List<WaypointGen>
             {
-                if (line.Contains("<Waypoint"))
-                {
-                    var waypoint = new WaypointGen
-                    {
-                        Index = GetValueFromTag(line, "Index"),
-                        Latitude = GetValueFromTag(line, "Lat"),
-                        Longitude = GetValueFromTag(line, "Lng"),
-                        ExecuteHeight = GetValueFromTag(line, "Height"),
-                        WaypointSpeed = GetValueFromTag(line, "Speed")
-                    };
-                    waypoints.Add(waypoint);
-                }
-            }
-            return waypoints;
+                new WaypointGen { Latitude = 60.4040751527782, Longitude = 26.254953488815023, ExecuteHeight = 40, WaypointSpeed = 2.5, Index = 0 },
+                new WaypointGen { Latitude = 60.4040751527782, Longitude = 26.25485348881502, ExecuteHeight = 40, WaypointSpeed = 2.5, Index = 1 },
+                new WaypointGen { Latitude = 60.4040751527782, Longitude = 26.25275348881502, ExecuteHeight = 40, WaypointSpeed = 2.5, Index = 2 }
+            };
         }
 
         private async Task<string> GenerateKmlAsync(FlyToWaylineRequest request)
         {
-            // Get current Unix timestamp in milliseconds for createTime and updateTime
+            // Luo KML sisällön ohjelmallisesti
             var timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            var kmlDocument = new XDocument(
+            new XElement(kmlNs + "kml",   // KML nimitila juurielementissä
+                new XAttribute(XNamespace.Xmlns + "wpml", wpmlNs),   // WPML nimitila määritelty juuritasolla
+                new XElement(kmlNs + "Document",
+                    // Käytetään wpmlNs ja kmlNs vain siellä, missä niitä oikeasti tarvitaan.
+                    new XElement(wpmlNs + "missionConfig",
+                        new XElement(wpmlNs + "flyToWaylineMode", request.FlyToWaylineMode),
+                        new XElement(wpmlNs + "finishAction", request.FinishAction),
+                        new XElement(wpmlNs + "exitOnRCLost", request.ExitOnRCLost),
+                        new XElement(wpmlNs + "executeRCLostAction", request.ExecuteRCLostAction),
+                        new XElement(wpmlNs + "globalTransitionalSpeed", request.GlobalTransitionalSpeed.ToString(CultureInfo.InvariantCulture) ?? "2.5"),
+                        new XElement(wpmlNs + "droneInfo",
+                            new XElement(wpmlNs + "droneEnumValue", request.DroneInfo?.DroneEnumValue.ToString(CultureInfo.InvariantCulture) ?? "68"),
+                            new XElement(wpmlNs + "droneSubEnumValue", request.DroneInfo?.DroneSubEnumValue.ToString(CultureInfo.InvariantCulture) ?? "0")
+                        )
+                    ),
+                    // ActionGroup lisätty oikein WPML-nimitilaan
+                    new XElement(wpmlNs + "actionGroup",
+                        new XElement(wpmlNs + "actionGroupId", "1"),
+                        new XElement(wpmlNs + "actionGroupMode", "parallel"),
+                        new XElement(wpmlNs + "actionTrigger",
+                            new XElement(wpmlNs + "actionTriggerType", "timeInterval"),
+                            new XElement(wpmlNs + "timeInterval", request.Interval.ToString(CultureInfo.InvariantCulture))
+                        ),
+                        new XElement(wpmlNs + "action",
+                            new XElement(wpmlNs + "actionId", "1"),
+                            new XElement(wpmlNs + "actionActuatorFunc", "takePhoto")
+                        )
+                    )
+                )
+            )
+        );
 
-            // Build the KML content manually with the exact structure you need
-            var kmlContent = $@"<?xml version=""1.0"" encoding=""UTF-8""?>
-                <kml xmlns=""http://www.opengis.net/kml/2.2"" xmlns:wpml=""http://www.dji.com/wpmz/1.0.2"">
-                  <Document>
-                    <wpml:author>fly</wpml:author>
-                    <wpml:createTime>{timestamp}</wpml:createTime>
-                    <wpml:updateTime>{timestamp}</wpml:updateTime>
-                    <wpml:missionConfig>
-                      <wpml:flyToWaylineMode>{request.FlyToWaylineMode ?? "safely"}</wpml:flyToWaylineMode>
-                      <wpml:finishAction>{request.FinishAction ?? "goHome"}</wpml:finishAction>
-                      <wpml:exitOnRCLost>{request.ExitOnRCLost ?? "executeLostAction"}</wpml:exitOnRCLost>
-                      <wpml:executeRCLostAction>{request.ExecuteRCLostAction ?? "goBack"}</wpml:executeRCLostAction>
-                      <wpml:globalTransitionalSpeed>{request.GlobalTransitionalSpeed.ToString(CultureInfo.InvariantCulture) ?? "2.5"}</wpml:globalTransitionalSpeed>
-                      <wpml:droneInfo>
-                        <wpml:droneEnumValue>{request.DroneInfo?.DroneEnumValue.ToString(CultureInfo.InvariantCulture) ?? "68"}</wpml:droneEnumValue>
-                        <wpml:droneSubEnumValue>{request.DroneInfo?.DroneSubEnumValue.ToString(CultureInfo.InvariantCulture) ?? "0"}</wpml:droneSubEnumValue>
-                      </wpml:droneInfo>
-                    </wpml:missionConfig>
-                  </Document>
-                </kml>";
 
-            return await Task.FromResult(kmlContent);
+            // Palauta KML sisällön merkkijonona
+            using var stringWriter = new StringWriter();
+            kmlDocument.Save(stringWriter);
+            return await Task.FromResult(stringWriter.ToString());
         }
 
         private async Task<string> GenerateWpmlAsync(FlyToWaylineRequest request)
         {
             var wpmlContent = new System.Text.StringBuilder();
 
-            // Start with the XML declaration and the KML opening tags including wpml:missionConfig
+            // WPML-otsikot ja missionConfig-osio
             wpmlContent.AppendLine(@"<?xml version=""1.0"" encoding=""UTF-8""?>");
-            wpmlContent.AppendLine(@"<kml xmlns=""http://www.opengis.net/kml/2.2"" xmlns:wpml=""http://www.dji.com/wpmz/1.0.2"">");
+            wpmlContent.AppendLine($@"<kml xmlns=""{kmlNs}"" xmlns:wpml=""{wpmlNs}"">");
             wpmlContent.AppendLine(@"  <Document>");
             wpmlContent.AppendLine(@"    <wpml:missionConfig>");
-            wpmlContent.AppendLine($@"      <wpml:flyToWaylineMode>{request.FlyToWaylineMode ?? "safely"}</wpml:flyToWaylineMode>");
-            wpmlContent.AppendLine($@"      <wpml:finishAction>{request.FinishAction ?? "goHome"}</wpml:finishAction>");
-            wpmlContent.AppendLine($@"      <wpml:exitOnRCLost>{request.ExitOnRCLost ?? "executeLostAction"}</wpml:exitOnRCLost>");
-            wpmlContent.AppendLine($@"      <wpml:executeRCLostAction>{request.ExecuteRCLostAction ?? "goBack"}</wpml:executeRCLostAction>");
-            wpmlContent.AppendLine($@"      <wpml:globalTransitionalSpeed>{request.GlobalTransitionalSpeed.ToString(CultureInfo.InvariantCulture) ?? "2.5"}</wpml:globalTransitionalSpeed>");
+            wpmlContent.AppendLine($@"      <wpml:flyToWaylineMode>{request.FlyToWaylineMode}</wpml:flyToWaylineMode>");
+            wpmlContent.AppendLine($@"      <wpml:finishAction>{request.FinishAction}</wpml:finishAction>");
+            wpmlContent.AppendLine($@"      <wpml:exitOnRCLost>{request.ExitOnRCLost}</wpml:exitOnRCLost>");
+            wpmlContent.AppendLine($@"      <wpml:executeRCLostAction>{request.ExecuteRCLostAction}</wpml:executeRCLostAction>");
+            wpmlContent.AppendLine($@"      <wpml:globalTransitionalSpeed>{request.GlobalTransitionalSpeed.ToString(CultureInfo.InvariantCulture)}</wpml:globalTransitionalSpeed>");
             wpmlContent.AppendLine(@"      <wpml:droneInfo>");
             wpmlContent.AppendLine($@"        <wpml:droneEnumValue>{request.DroneInfo?.DroneEnumValue.ToString(CultureInfo.InvariantCulture) ?? "68"}</wpml:droneEnumValue>");
             wpmlContent.AppendLine($@"        <wpml:droneSubEnumValue>{request.DroneInfo?.DroneSubEnumValue.ToString(CultureInfo.InvariantCulture) ?? "0"}</wpml:droneSubEnumValue>");
             wpmlContent.AppendLine(@"      </wpml:droneInfo>");
             wpmlContent.AppendLine(@"    </wpml:missionConfig>");
 
-            // Start the Folder section
+            // Aloita Folder-osio
             wpmlContent.AppendLine(@"    <Folder>");
-            wpmlContent.AppendLine(@"      <wpml:templateId>0</wpml:templateId>");
+            wpmlContent.AppendLine(@"      <wpml:templateId>1</wpml:templateId>"); // Viitataan actionGroupiin
             wpmlContent.AppendLine(@"      <wpml:executeHeightMode>relativeToStartPoint</wpml:executeHeightMode>");
             wpmlContent.AppendLine(@"      <wpml:waylineId>0</wpml:waylineId>");
             wpmlContent.AppendLine(@"      <wpml:distance>0</wpml:distance>");
             wpmlContent.AppendLine(@"      <wpml:duration>0</wpml:duration>");
             wpmlContent.AppendLine(@"      <wpml:autoFlightSpeed>2.5</wpml:autoFlightSpeed>");
 
-            // Add the waypoints inside Placemark
-            //wpmlContent.AppendLine(@"      <Placemark>");
-
+            // Lisää Placemark-elementit reittipisteille
             foreach (var waypoint in request.Waypoints)
             {
+                // Määritellään muuttujat reittipisteille
                 var lat = waypoint.Latitude.ToString("F14", CultureInfo.InvariantCulture);
                 var lng = waypoint.Longitude.ToString("F14", CultureInfo.InvariantCulture);
                 var height = waypoint.ExecuteHeight.ToString(CultureInfo.InvariantCulture);
@@ -172,80 +156,36 @@ namespace KarttaBackEnd2.Server.Services
                 var turnMode = waypoint.WaypointTurnMode ?? "toPointAndPassWithContinuityCurvature";
                 var dampingDist = waypoint.WaypointTurnDampingDist.ToString(CultureInfo.InvariantCulture) ?? "0";
                 var useStraightLine = waypoint.UseStraightLine ?? "0";
-                var actionGroupId = waypoint.ActionGroupId ?? "2";
-                var actionStartIndex = waypoint.ActionGroupStartIndex ?? waypoint.Index.ToString();
-                var actionEndIndex = waypoint.ActionGroupEndIndex ?? waypoint.Index.ToString();
-                var actionGroupMode = waypoint.ActionGroupMode ?? "parallel";
-                var actionTriggerType = waypoint.ActionTriggerType ?? "reachPoint";
-                var actionId = waypoint.ActionId ?? "206";
-                var actuatorFunc = waypoint.ActionActuatorFunc ?? "takePhoto";
-                var actuatorPitchAngle = waypoint.GimbalPitchRotateAngle ?? "-45";
-                var payloadPositionIndex = waypoint.PayloadPositionIndex ?? "0";
 
+                // Lisää Placemark osio WPML sisällössä
                 wpmlContent.AppendLine($@"
-                    <Placemark>
-                        <Point>
-                            <coordinates>{lng},{lat}</coordinates>
-                        </Point>
-                        <wpml:index>{waypoint.Index}</wpml:index>
-                        <wpml:executeHeight>{height}</wpml:executeHeight>
-                        <wpml:waypointSpeed>{speed}</wpml:waypointSpeed>
-                        <wpml:waypointHeadingParam>
-                            <wpml:waypointHeadingMode>{headingMode}</wpml:waypointHeadingMode>
-                            <wpml:waypointHeadingAngle>{headingAngle}</wpml:waypointHeadingAngle>
-                            <wpml:waypointPoiPoint>{waypointPoiPoint}</wpml:waypointPoiPoint>
-                            <wpml:waypointHeadingAngleEnable>{headingAngleEnable}</wpml:waypointHeadingAngleEnable>
-                            <wpml:waypointHeadingPathMode>{pathMode}</wpml:waypointHeadingPathMode>
-                        </wpml:waypointHeadingParam>
-                        <wpml:waypointTurnParam>
-                            <wpml:waypointTurnMode>{turnMode}</wpml:waypointTurnMode>
-                            <wpml:waypointTurnDampingDist>{dampingDist}</wpml:waypointTurnDampingDist>
-                        </wpml:waypointTurnParam>
-                        <wpml:useStraightLine>{useStraightLine}</wpml:useStraightLine>
-                        <wpml:actionGroup>
-                            <wpml:actionGroupId>{actionGroupId}</wpml:actionGroupId>
-                            <wpml:actionGroupStartIndex>{actionStartIndex}</wpml:actionGroupStartIndex>
-                            <wpml:actionGroupEndIndex>{actionEndIndex}</wpml:actionGroupEndIndex>
-                            <wpml:actionGroupMode>{actionGroupMode}</wpml:actionGroupMode>
-                            <wpml:actionTrigger>
-                                <wpml:actionTriggerType>{actionTriggerType}</wpml:actionTriggerType>
-                            </wpml:actionTrigger>
-                            <wpml:action>
-                                <wpml:actionId>{actionId}</wpml:actionId>
-                                <wpml:actionActuatorFunc>{actuatorFunc}</wpml:actionActuatorFunc>
-                                <wpml:actionActuatorFuncParam>
-                                    <wpml:gimbalPitchRotateAngle>{actuatorPitchAngle}</wpml:gimbalPitchRotateAngle>
-                                    <wpml:payloadPositionIndex>{payloadPositionIndex}</wpml:payloadPositionIndex>
-                                </wpml:actionActuatorFuncParam>
-                            </wpml:action>
-                        </wpml:actionGroup>
-                    </Placemark>");
+                  <Placemark>
+                      <Point>
+                          <coordinates>{lng},{lat}</coordinates>
+                      </Point>
+                      <wpml:index>{waypoint.Index}</wpml:index>
+                      <wpml:executeHeight>{height}</wpml:executeHeight>
+                      <wpml:waypointSpeed>{speed}</wpml:waypointSpeed>
+                      <wpml:waypointHeadingParam>
+                          <wpml:waypointHeadingMode>{headingMode}</wpml:waypointHeadingMode>
+                          <wpml:waypointHeadingAngle>{headingAngle}</wpml:waypointHeadingAngle>
+                          <wpml:waypointPoiPoint>{waypointPoiPoint}</wpml:waypointPoiPoint>
+                          <wpml:waypointHeadingAngleEnable>{headingAngleEnable}</wpml:waypointHeadingAngleEnable>
+                          <wpml:waypointHeadingPathMode>{pathMode}</wpml:waypointHeadingPathMode>
+                      </wpml:waypointHeadingParam>
+                      <wpml:waypointTurnParam>
+                          <wpml:waypointTurnMode>{turnMode}</wpml:waypointTurnMode>
+                          <wpml:waypointTurnDampingDist>{dampingDist}</wpml:waypointTurnDampingDist>
+                      </wpml:waypointTurnParam>
+                      <wpml:useStraightLine>{useStraightLine}</wpml:useStraightLine>
+                  </Placemark>");
             }
 
-            // End the closing tags
             wpmlContent.AppendLine(@"    </Folder>");
             wpmlContent.AppendLine(@"  </Document>");
             wpmlContent.AppendLine(@"</kml>");
 
             return await Task.FromResult(wpmlContent.ToString());
-        }
-
-        // New method to flip the drone direction
-        public async Task<List<WaypointGen>> FlipDroneDirectionAsync(List<WaypointGen> waypoints)
-        {
-            if (waypoints.Count == 0)
-                return waypoints;
-
-            // Calculate midpoint of the waypoints list
-            int midPoint = waypoints.Count / 2;
-
-            // Iterate from the midpoint to the end and flip the drone's heading to face south (180°)
-            for (int i = midPoint; i < waypoints.Count; i++)
-            {
-                waypoints[i].WaypointHeadingAngle = 180; // Set heading to 180° (facing south)
-            }
-
-            return await Task.FromResult(waypoints);
         }
 
         private async Task<byte[]> CreateKmzAsync(string kmlContent, string wpmlContent)
@@ -254,19 +194,16 @@ namespace KarttaBackEnd2.Server.Services
             {
                 using (var zipArchive = new ZipArchive(memoryStream, ZipArchiveMode.Create, true))
                 {
-                    // Create the folder 'wpmz' in the zip archive
-                    var kmlFolderPath = "wpmz/";
-
-                    // Add KML file to archive
-                    var kmlEntry = zipArchive.CreateEntry($"{kmlFolderPath}template.kml");
+                    // Luo KML-tiedosto KMZ:ään
+                    var kmlEntry = zipArchive.CreateEntry("template.kml");
                     using (var kmlStream = kmlEntry.Open())
                     using (var streamWriter = new StreamWriter(kmlStream))
                     {
                         await streamWriter.WriteAsync(kmlContent);
                     }
 
-                    // Add WPML file to archive
-                    var wpmlEntry = zipArchive.CreateEntry($"{kmlFolderPath}waylines.wpml");
+                    // Luo WPML-tiedosto KMZ:ään
+                    var wpmlEntry = zipArchive.CreateEntry("waylines.wpml");
                     using (var wpmlStream = wpmlEntry.Open())
                     using (var streamWriter = new StreamWriter(wpmlStream))
                     {
@@ -278,12 +215,20 @@ namespace KarttaBackEnd2.Server.Services
             }
         }
 
-        private int GetValueFromTag(string line, string tagName)
+        // Dronen suunnan kääntäminen
+        private async Task<List<WaypointGen>> FlipDroneDirectionAsync(List<WaypointGen> waypoints)
         {
-            var startTag = $"{tagName}=\"";
-            var startIndex = line.IndexOf(startTag) + startTag.Length;
-            var endIndex = line.IndexOf("\"", startIndex);
-            return int.Parse(line.Substring(startIndex, endIndex - startIndex));
+            if (waypoints.Count == 0)
+                return waypoints;
+
+            // Laske puoliväli listasta ja käännä dronen suunta etelään (180°)
+            int midPoint = waypoints.Count / 2;
+            for (int i = midPoint; i < waypoints.Count; i++)
+            {
+                waypoints[i].WaypointHeadingAngle = 180; // Käännä suunta etelään (180°)
+            }
+
+            return await Task.FromResult(waypoints);
         }
     }
 }
