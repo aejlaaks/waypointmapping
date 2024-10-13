@@ -4,6 +4,14 @@ import { GoogleMap, useJsApiLoader, DrawingManager, InfoWindow, Marker, Polyline
 import WaypointInfoBox from './WaypointInfoBox';
 import axios from 'axios'; // Import axios for making API calls
 import "../App.css";
+import {
+    calculateDistanceBetweenPaths,
+    calculateSpeed,
+    validateAndCorrectCoordinates,
+    measure,
+    GenerateWaypointInfoboxText,
+    GenerateShapeInfoboxText
+} from '../services/JSFunctions'; // Tuodaan erillisestä tiedostosta
 
 // Valitse API-URL ympäristön perusteella
 const apiBaseUrl = process.env.NODE_ENV === 'production'
@@ -12,127 +20,14 @@ const apiBaseUrl = process.env.NODE_ENV === 'production'
 
 const libraries = ['drawing', 'places'];
 
-const containerStyle = {
-    width: '100%',
-    height: '600px',
-};
+
 
 const center = {
     lat: 60.1699, // Example center location (Helsinki)
     lng: 24.9384,
 };
-const inputStyle = {
-    marginBottom: '10px',
-};
-
-const stopDrawingButtonStyle = {
-    padding: '10px 20px',
-    backgroundColor: '#dc3545',
-    color: '#fff',
-    border: 'none',
-    borderRadius: '5px',
-    cursor: 'pointer',
-    marginBottom: '10px',
-};
 
 
-const topLeftButtonStyle = {
-    position: 'absolute',
-    top: '10px',
-    left: '10px',
-    zIndex: 1000,
-    padding: '10px 20px',
-    backgroundColor: '#007bff',
-    color: '#fff',
-    border: 'none',
-    borderRadius: '5px',
-    cursor: 'pointer',
-};
-// Define the style for middle-top buttons
-const middleTopButtonStyle = {
-    position: 'absolute',
-    top: '10px',
-    left: '50%',
-    transform: 'translateX(-50%)',
-    zIndex: 1000,
-    padding: '10px 20px',
-    backgroundColor: '#17a2b8',
-    color: '#fff',
-    border: 'none',
-    borderRadius: '5px',
-    cursor: 'pointer',
-};
-const topRightButtonStyle = {
-    position: 'absolute',
-    top: '10px',
-    right: '10px',
-    zIndex: 1000,
-    padding: '10px 20px',
-    backgroundColor: '#28a745',
-    color: '#fff',
-    border: 'none',
-    borderRadius: '5px',
-    cursor: 'pointer',
-};
-
-const bottomLeftButtonStyle = {
-    position: 'absolute',
-    bottom: '10px',
-    left: '10px',
-    zIndex: 1000,
-    padding: '10px 20px',
-    backgroundColor: '#dc3545',
-    color: '#fff',
-    border: 'none',
-    borderRadius: '5px',
-    cursor: 'pointer',
-};
-
-const bottomRightButtonStyle = {
-    position: 'absolute',
-    bottom: '10px',
-    right: '10px',
-    zIndex: 1000,
-    padding: '10px 20px',
-    backgroundColor: '#ffc107',
-    color: '#fff',
-    border: 'none',
-    borderRadius: '5px',
-    cursor: 'pointer',
-};
-const drawingButtonContainerStyle = {
-    position: 'absolute',
-    top: '10px',
-    left: '10px',
-    zIndex: 1000, // Ensure the buttons are in front of the map
-    display: 'flex',
-    flexDirection: 'column',
-};
-
-const buttonStyle = {
-    padding: '10px 20px',
-    backgroundColor: '#007bff',
-    color: '#fff',
-    border: 'none',
-    borderRadius: '5px',
-    cursor: 'pointer',
-    marginBottom: '10px',
-};
-
-
-const flexContainerStyle = {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    width: '100%',
-};
-
-const inputContainerStyle = {
-    display: 'flex',
-    flexDirection: 'column',
-    width: '50%',
-    padding: '10px',
-};
 
 function MapComponent() {
     const { isLoaded } = useJsApiLoader({
@@ -170,6 +65,8 @@ function MapComponent() {
     const [waypoints, setWaypoints] = useState([]); // vastaa map.flags
     const drawingManagerRef = useRef(null);
     const mapRef = useRef(null);
+    const inputRef = useRef(null); // Create a ref for the input element
+
     const genInfoWindow = useRef(null); // Ref for genInfoWindow
     const downloadLinkRef = useRef(null); // Ref for the download link
     const [in_allPointsAction, setInAllPointsAction] = useState('takePhoto'); // New state variable for in_allPointsAction
@@ -225,23 +122,8 @@ function MapComponent() {
         RedrawMarkers();
     }, [waypoints]);
 
-    // Function to calculate Distance Between Paths
-    const calculateDistanceBetweenPaths = (altitude, overlap, fov) => {
-        const overlapFactor = (1 - overlap / 100);
-        const fovRadians = (fov / 2) * (Math.PI / 180); // Muutetaan FOV radiaaneiksi
-        const groundWidth = 2 * altitude * Math.tan(fovRadians);
-        const newDistance = groundWidth * overlapFactor;
-        return newDistance;
-    };
+    
 
-    // Function to calculate Speed
-    const calculateSpeed = (altitude, overlap, focalLength, sensorHeight, photoInterval) => {
-        const overlapFactor = (1 - overlap / 100);
-        const vfovRadians = 2 * Math.atan(sensorHeight / (2 * focalLength));
-        const groundHeight = 2 * altitude * Math.tan(vfovRadians / 2);
-        const speed = (groundHeight * overlapFactor) / photoInterval;
-        return speed;
-    };
 
     const stopDrawing = () => {
         if (drawingManagerRef.current) {
@@ -397,8 +279,9 @@ function MapComponent() {
  
     const onLoad = useCallback((map) => {
         mapRef.current = map;
+        const searchBox = new window.google.maps.places.SearchBox(inputRef.current);
+
         const input = document.getElementById('pac-input');
-        const searchBox = new window.google.maps.places.SearchBox(input);
         mapRef.current.flags = []; // Initialize flags as an empty array
         mapRef.current.lines = []; // Initialize lines as an empty array
         genInfoWindow.current = new google.maps.InfoWindow({
@@ -512,38 +395,7 @@ function MapComponent() {
         setStartingIndex(1);
     };
 
-    const validateAndCorrectCoordinates = (coordinatesString) => {
-        try {
-            // Split the string by semicolon to get individual coordinate pairs
-            const coordinatePairs = coordinatesString.split(';');
 
-            // Map each pair to an object with lat and lng properties
-            const coordinatesArray = coordinatePairs.map(pair => {
-                const [lat, lng] = pair.split(',').map(Number);
-                if (isNaN(lat) || isNaN(lng)) {
-                    throw new Error("Invalid coordinate values");
-                }
-                return { lat, lng };
-            });
-
-            return coordinatesArray;
-        } catch (error) {
-            console.error("Error parsing coordinates string:", error);
-            return null;
-        }
-    };
-
-    const measure = (lat1, lon1, lat2, lon2) => {
-        const R = 6378.137; // Radius of earth in KM
-        const dLat = lat2 * Math.PI / 180 - lat1 * Math.PI / 180;
-        const dLon = lon2 * Math.PI / 180 - lon1 * Math.PI / 180;
-        const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-            Math.sin(dLon / 2) * Math.sin(dLon / 2);
-        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-        const d = R * c;
-        return d * 1000; // Distance in meters
-    };
   
     const WaypointEditorSave = (id) => {
         const map = mapRef.current; // Get the map object from the ref
@@ -633,38 +485,6 @@ function MapComponent() {
         });
     };
 
-
-    const GenerateWaypointInfoboxText = (waypointMarker) => {
-        let select = '';
-        if (waypointMarker.action == "noAction") {
-            select = '<option selected value="noAction">No Action</option><option value="takePhoto">Take Picture</option><option value="startRecord">Start Recording</option><option value="stopRecord">Stop Recording</option>';
-        } else if (waypointMarker.action == "takePhoto") {
-            select = '<option value="noAction">No Action</option><option selected value="takePhoto">Take Picture</option><option value="startRecord">Start Recording</option><option value="stopRecord">Stop Recording</option>';
-        } else if (waypointMarker.action == "startRecord") {
-            select = '<option value="noAction">No Action</option><option value="takePhoto">Take Picture</option><option selected value="startRecord">Start Recording</option><option value="stopRecord">Stop Recording</option>';
-        } else if (waypointMarker.action == "stopRecord") {
-            select = '<option value="noAction">No Action</option><option value="takePhoto">Take Picture</option><option value="startRecord">Start Recording</option><option selected value="stopRecord">Stop Recording</option>';
-        }
-
-        return `<div><h2 class="text-center" id="selectedWaypointId">
-            ${waypointMarker.id}</h2><div class="text-center">
-            ${waypointMarker.lat}, ${waypointMarker.lng}</div><br/>
-            Altitude:<br/><input type="text" id="editWaypointAltitude" value="${waypointMarker.altitude}" /><span class="unitsLabel">Meters</span><br/>
-            Speed:<br/><input type="text" id="editWaypointSpeed" value="${waypointMarker.speed}" /><span class="unitsLabel">Meters</span>/s<br/>
-            Gimbal Angle:<br/><input type="text" id="editWaypointAngle" value="${waypointMarker.angle}" />Degrees<br/>
-            Heading:<br/><input type="text" id="editWaypointHeading" value="${waypointMarker.heading}" />Degrees North<br/>
-            Action:<br/><select id="editWaypointAction">${select}</select><br />
-            Waypoint Number:<br/><input type="text" id="editWaypointID" value="${waypointMarker.id}" /><br/><br/>
-            <div class="text-center">
-            <button class="btn btn-success" id="editWaypointSave"">Save</button><span> </span>
-            <button class="btn btn-danger" id"editWaypointRemovee">Remove</button></div></div>`;
-    };
-
-    const GenerateShapeInfoboxText = (shape) => {
-        return `<div class="text-center"><h4>Generate Waypoints For Shape?</h4>
-            <button class="btn btn-success" onclick="submitFormFetch()">Generate</button><span>   </span>
-            <button class="btn btn-danger" onclick="ShapeEditiorRemove()">Remove</button></div>`;
-    };
 
 
     const generateKml = async () => {
@@ -888,19 +708,18 @@ function MapComponent() {
     };
 
     return (
-        <div style={flexContainerStyle}>
-            <div style={inputContainerStyle}>
+        <div className="flex-container">
+            <div className="input-container">
               
                 <a ref={downloadLinkRef} style={{ display: 'none' }}>Download KML</a>
                 {/* Add your input fields here */}
                 <label>
                     Search Location
                     <input
+                        ref={inputRef} // Attach the input element to the ref
                         type="text"
                         placeholder="Search Location"
-                        value={searchLocation}
-                        onChange={(e) => setSearchLocation(e.target.value)}
-                        style={inputStyle}
+                        className="input-style"
                     />
                 </label>
                 <label>
@@ -910,7 +729,7 @@ function MapComponent() {
                         placeholder="Altitude"
                         value={altitude}
                         onChange={(e) => setAltitude(e.target.value)}
-                        style={inputStyle}
+                        className="input-style"
                     />
                 </label>
                 <label>
@@ -920,7 +739,7 @@ function MapComponent() {
                         placeholder="Speed"
                         value={speed}
                         onChange={(e) => setSpeed(e.target.value)}
-                        style={inputStyle}
+                        className="input-style"
                     />
                 </label>
                 <label>
@@ -930,7 +749,7 @@ function MapComponent() {
                         placeholder="Angle"
                         value={angle}
                         onChange={(e) => setAngle(e.target.value)}
-                        style={inputStyle}
+                        className="input-style"
                     />
                 </label>
                 <label>
@@ -940,7 +759,7 @@ function MapComponent() {
                         placeholder="Focal Length"
                         value={focalLength}
                         onChange={(e) => setFocalLength(e.target.value)}
-                        style={inputStyle}
+                        className="input-style"
                     />
                 </label>
                 <label>
@@ -950,7 +769,7 @@ function MapComponent() {
                         placeholder="Sensor Width"
                         value={sensorWidth}
                         onChange={(e) => setSensorWidth(e.target.value)}
-                        style={inputStyle}
+                        className="input-style"
                     />
                 </label>
                 <label>
@@ -960,7 +779,7 @@ function MapComponent() {
                         placeholder="Sensor Height"
                         value={sensorHeight}
                         onChange={(e) => setSensorHeight(e.target.value)}
-                        style={inputStyle}
+                        className="input-style"
                     />
                 </label>
                 <label>
@@ -969,7 +788,7 @@ function MapComponent() {
                         type="checkbox"  // Switch for controlling useEndpointsOnly
                         checked={useEndpointsOnly}
                         onChange={handleToggleUseEndpointsOnly}
-                        style={inputStyle}
+                        className="input-style"
                     />
                 </label>
                 <label>
@@ -979,7 +798,7 @@ function MapComponent() {
                         placeholder="Photo Interval"
                         value={photoInterval}
                         onChange={(e) => setPhotoInterval(e.target.value)}
-                        style={inputStyle}
+                        className="input-style"
                     />
                 </label>
                 <label>
@@ -989,7 +808,7 @@ function MapComponent() {
                         placeholder="Overlap"
                         value={overlap}
                         onChange={(e) => setOverlap(e.target.value)}
-                        style={inputStyle}
+                        className="input-style"
                     />
                 </label>
               
@@ -1000,7 +819,7 @@ function MapComponent() {
                         placeholder="In Distance"
                         value={inDistance}
                         onChange={(e) => setInDistance(e.target.value)}
-                        style={inputStyle}
+                        className="input-style"
                     />
                 </label>
                 <label>
@@ -1011,7 +830,7 @@ function MapComponent() {
                         placeholder="All Points Action"
                         value={in_allPointsAction}
                         onChange={(e) => setInAllPointsAction(e.target.value)}
-                        style={inputStyle}
+                        className="input-style"
                     />
                 </label>
                 {/* Add more inputs as needed */}
@@ -1020,7 +839,7 @@ function MapComponent() {
               
                 {isLoaded && (
                     <GoogleMap
-                        mapContainerStyle={containerStyle}
+                        mapContainerClassName="map-container"
                         center={center}
                         zoom={10}
                         onLoad={onLoad} // Add this line to set the onLoad callback
@@ -1043,12 +862,12 @@ function MapComponent() {
                         {waypoints.map(waypoint => (
                             <Marker key={waypoint.id} position={{ lat: waypoint.lat, lng: waypoint.lng }} />
                         ))}
-                        <button style={topLeftButtonStyle} onClick={stopDrawing}>Stop Drawing</button>
+                        <button className="top-left-button" onClick={stopDrawing}>Stop Drawing</button>
                         <input type="hidden" id="in_startingIndex" value={startingIndex} />
-                        <button style={bottomLeftButtonStyle} onClick={submitFormFetch}>Generate waypoints</button>
-                        <button style={bottomRightButtonStyle} onClick={generateKml}>Generate KML</button>
-                        <button style={topRightButtonStyle} onClick={() => enableDrawingMode('rectangle')}>Draw Rectangle</button>
-                        <button style={middleTopButtonStyle} onClick={() => handleClearShapes()}>Tyhjennä piirrot</button>
+                        <button className="bottom-left-button" onClick={submitFormFetch}>Generate waypoints</button>
+                        <button className="bottom-right-button" onClick={generateKml}>Generate KML</button>
+                        <button className="top-right-button" onClick={() => enableDrawingMode('rectangle')}>Draw Rectangle</button>
+                        <button className="middle-top-button" onClick={() => handleClearShapes()}>Tyhjennä piirrot</button>
 
                     </GoogleMap>
                 )}

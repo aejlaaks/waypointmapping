@@ -15,7 +15,7 @@ namespace KarttaBackEnd2.Server.Services
         {
             // Aseta oletusarvot tarvittaessa
             await SetDefaultValuesAsync(request);
-
+            request.Flip = true;
             // Tarkista ja käännä reitti, jos Flip on asetettu
             if (request.Flip)
             {
