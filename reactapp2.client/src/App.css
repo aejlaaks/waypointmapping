@@ -32,11 +32,13 @@ body,
 #root {
     height: 100%;
 }
+/* Container style for the map, with 70% width and 90% height */
 .map-container {
-    width: 100%;
-    height: 600px;
+    width: 70%;
+    height: 90vh; /* 90% of the viewport height */
+    position: relative;
+    margin-top: 20px; /* Optional margin to provide spacing below the navigation */
 }
-
 .input-style {
     margin-bottom: 10px;
 }
@@ -117,6 +119,51 @@ body,
     cursor: pointer;
 }
 
+/* Container style for the map */
+.map-container {
+    width: 100%;
+    height: 90vh; /* 90% of the viewport height */
+    position: relative;
+    margin-top: 1px; /* Optional margin to provide spacing below the navigation */
+}
+
+/* Input styles */
+.input-style {
+    margin-bottom: 10px;
+}
+
+/* Stop drawing button */
+.stop-drawing-button {
+    padding: 10px 20px;
+    background-color: #dc3545;
+    color: #fff;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    margin-bottom: 10px;
+}
+
+/* Button container style */
+.button-container {
+    position: absolute;
+    left: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    z-index: 1000;
+}
+
+    /* Common button styles */
+    .button-container button {
+        padding: 10px 20px;
+        color: #fff;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        margin-bottom: 10px;
+    }
 .drawing-button-container {
     position: absolute;
     top: 10px;
@@ -126,16 +173,8 @@ body,
     flex-direction: column;
 }
 
-.button-style {
-    padding: 10px 20px;
-    background-color: #007bff;
-    color: #fff;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-    margin-bottom: 10px;
-}
 
+/* Flex container for layout */
 .flex-container {
     display: flex;
     justify-content: space-between;
@@ -143,9 +182,31 @@ body,
     width: 100%;
 }
 
+/* Input container style */
 .input-container {
+    width: 25%;
+    padding: 20px;
     display: flex;
     flex-direction: column;
-    width: 50%;
-    padding: 10px;
+    justify-content: flex-start;
+}
+/* Specific button colors */
+.stop-drawing-button {
+    background-color: #dc3545; /* Red */
+}
+
+.generate-waypoints-button {
+    background-color: #007bff; /* Blue */
+}
+
+.generate-kml-button {
+    background-color: #28a745; /* Green */
+}
+
+.draw-rectangle-button {
+    background-color: #ffc107; /* Yellow */
+}
+
+.clear-shapes-button {
+    background-color: #17a2b8; /* Teal */
 }

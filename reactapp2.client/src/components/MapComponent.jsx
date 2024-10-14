@@ -55,7 +55,7 @@ function MapComponent() {
     const [finalAction, setFinalAction] = useState('0');
     const [flipPath, setFlipPath] = useState(false);
     const [interval, setInterval] = useState(3);
-    const [inDistance, setInDistance] = useState(10,0); // New state variable for in_distance
+    const [inDistance, setInDistance] = useState(10, 0); // New state variable for in_distance
     const [selectedShape, setSelectedShape] = useState(null);
     const [selectedMarker, setSelectedMarker] = useState(null);
     const [infoWindowPosition, setInfoWindowPosition] = useState(null);
@@ -71,19 +71,22 @@ function MapComponent() {
     const downloadLinkRef = useRef(null); // Ref for the download link
     const [in_allPointsAction, setInAllPointsAction] = useState('takePhoto'); // New state variable for in_allPointsAction
 
-    const buttonStyle = {
-        position: 'absolute',
-        top: '10px',
-        left: '10px',
-        zIndex: 1000, // Ensure the button is in front of the map
-        padding: '10px 20px',
-        backgroundColor: '#007bff',
-        color: '#fff',
-        border: 'none',
-        borderRadius: '5px',
-        cursor: 'pointer',
-    };
     
+
+    const parseBoundsString = (boundsString) => {
+        // Erota koordinaatit ja säde osat
+        const [coordinatesPart, radiusPart] = boundsString.split("; radius:");
+        const [lat, lng] = coordinatesPart.split(",").map(Number);
+        const radius = parseFloat(radiusPart);
+
+        // Tarkistetaan, että koordinaatit ja säde ovat kelvollisia numeroita
+        if (isNaN(lat) || isNaN(lng) || isNaN(radius)) {
+            throw new Error("Invalid bounds string format");
+        }
+
+        // Palautetaan ympyrän tiedot listana, jotta ne voidaan suoraan lähettää API:lle
+        return [{ Lat: lat, Lng: lng, Radius: radius }];
+    };
 
     // Alkuperäinen mapin asennus ja event handlerit pidetään
     useEffect(() => {
@@ -107,7 +110,7 @@ function MapComponent() {
                 mapRef.current.flags = [];
             }
         }
-        
+
         return () => {
             if (mapRef.current) {
                 google.maps.event.clearListeners(mapRef.current, "click");
@@ -122,7 +125,7 @@ function MapComponent() {
         RedrawMarkers();
     }, [waypoints]);
 
-    
+
 
 
     const stopDrawing = () => {
@@ -163,7 +166,7 @@ function MapComponent() {
         setSpeed(speedCalculated.toFixed(1));
 
     }, [altitude, overlap, focalLength, sensorWidth, sensorHeight, interval]); // 
-  
+
     // Function to update the info box listeners
     const infoBoxUpdateListeners = () => {
 
@@ -209,7 +212,7 @@ function MapComponent() {
             WaypointEditiorRemove(id);
         });
     };
-    
+
 
 
     // Handle waypoint click event
@@ -276,7 +279,7 @@ function MapComponent() {
         });
     };
 
- 
+
     const onLoad = useCallback((map) => {
         mapRef.current = map;
         const searchBox = new window.google.maps.places.SearchBox(inputRef.current);
@@ -393,10 +396,28 @@ function MapComponent() {
         setBounds('');
         setBoundsType('');
         setStartingIndex(1);
+        // Remove all markers from the map
+        if (mapRef.current && mapRef.current.flags) {
+            mapRef.current.flags.forEach((marker) => {
+                marker.setMap(null); // Remove marker from the map
+            });
+            mapRef.current.flags = []; // Clear the markers array
+        }
+
+        // Remove all routes (polylines) from the map
+        if (mapRef.current && mapRef.current.lines) {
+            mapRef.current.lines.forEach((line) => {
+                line.setMap(null); // Remove polyline (route) from the map
+            });
+            mapRef.current.lines = []; // Clear the routes array
+        }
+
+        // Clear waypoints state
+        setWaypoints([]);
     };
 
 
-  
+
     const WaypointEditorSave = (id) => {
         const map = mapRef.current; // Get the map object from the ref
 
@@ -495,7 +516,7 @@ function MapComponent() {
             ExecuteRCLostAction: "goBack",
             GlobalTransitionalSpeed: speed,
             useEndpointsOnly: useEndpointsOnly,
-            interval:interval,
+            interval: interval,
 
             DroneInfo: {
                 DroneEnumValue: 1,
@@ -537,11 +558,18 @@ function MapComponent() {
 
     const submitFormFetch = () => {
 
-        const validCoordinates = validateAndCorrectCoordinates(bounds);
+        let validCoordinates = ' '
+        if (boundsType == "rectangle") {
+            validCoordinates = validateAndCorrectCoordinates(bounds);
+        }
+
+        else {
+            validCoordinates = parseBoundsString(bounds)
+        }
         // Ensure the state is updated before making the API call
         const allPointsActionValue = document.getElementById('in_allPointsAction').value;
         setAllPointsAction(allPointsActionValue);
-        //const boundsObject = JSON.parse(validCoordinates);
+       
 
         // Extract necessary data from shapes to avoid circular references
         const shapesData = shapes.map(shape => {
@@ -610,7 +638,7 @@ function MapComponent() {
                         anchor: new google.maps.Point(228, 125),
                         strokeWeight: 3,
                         strokeColor: 'white',
-                        scale: 0.5,
+                        scale: 0.3,
                         rotation: generatedPoints[i].heading - 45,
                         labelOrigin: new google.maps.Point(228, 125),
                     };
@@ -860,15 +888,19 @@ function MapComponent() {
                             }}
                         />
                         {waypoints.map(waypoint => (
-                            <Marker key={waypoint.id} position={{ lat: waypoint.lat, lng: waypoint.lng }} />
+                            <Marker key={waypoint.id} position={{ lat: waypoint.lat, lng: waypoint.lng }}
+                        />
                         ))}
-                        <button className="top-left-button" onClick={stopDrawing}>Stop Drawing</button>
-                        <input type="hidden" id="in_startingIndex" value={startingIndex} />
-                        <button className="bottom-left-button" onClick={submitFormFetch}>Generate waypoints</button>
-                        <button className="bottom-right-button" onClick={generateKml}>Generate KML</button>
-                        <button className="top-right-button" onClick={() => enableDrawingMode('rectangle')}>Draw Rectangle</button>
-                        <button className="middle-top-button" onClick={() => handleClearShapes()}>Tyhjennä piirrot</button>
+                        <div className="button-container">
 
+                        <button className="stop-drawing-button" onClick={stopDrawing}>Stop Drawing</button>
+                        <input type="hidden" id="in_startingIndex" value={startingIndex} />
+                        <button className="generate-waypoints-button" onClick={submitFormFetch}>Generate waypoints</button>
+                        <button className="generate-kml-button" onClick={generateKml}>Generate KML</button>
+                        <button className="draw-rectangle-button"  onClick={() => enableDrawingMode('rectangle')}>Draw Rectangle</button>
+                        <button className="draw-rectangle-button" onClick={() => enableDrawingMode('circle')}>Draw circle</button>
+                        <button className="clear-shapes-button" onClick={() => handleClearShapes()}>Clear shapest</button>
+                        </div>
                     </GoogleMap>
                 )}
             </div>
