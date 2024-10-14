@@ -144,15 +144,16 @@ namespace KarttaBackEnd2.Server.Services
                 {
                     double centerLat = bound.Lat;
                     double centerLon = bound.Lng;
-                    double radius = bound.Radius;
+                    double semiMajorAxis = bound.Radius; // Ellipsin suuri akseli (käytetään Radius-nimeä)
+                    double semiMinorAxis = bound.Radius / 2; // Ellipsin pieni akseli, oletetaan se puolikkaaksi suurimmasta akselista
 
-                    double circumference = 2 * Math.PI * radius;
+                    double circumference = 2 * Math.PI * Math.Sqrt((semiMajorAxis * semiMajorAxis + semiMinorAxis * semiMinorAxis) / 2);  // Ellipsin arvioitu kehä
                     double distancePerPhoto = speed * photoInterval;
                     int numberOfWaypoints = (int)(circumference / distancePerPhoto);
 
-                    // Luo ympyrän reittipisteet samalla korkeudella
-                    var circleWaypoints = await GenerateWaypointsForCircleAsync(centerLat, centerLon, radius, altitude, speed, allPointsAction, id, photoInterval);
-                    waypoints.AddRange(circleWaypoints);
+                    // Luo ellipsin reittipisteet samalla korkeudella
+                    var ellipseWaypoints = await GenerateWaypointsForCircleAsync(centerLat, centerLon, semiMajorAxis, semiMinorAxis, altitude, speed, allPointsAction, id, photoInterval);
+                    waypoints.AddRange(ellipseWaypoints);
                 }
             }
 
@@ -160,56 +161,55 @@ namespace KarttaBackEnd2.Server.Services
         }
 
         // Method to generate waypoints for a circle
-        private async Task<List<Waypoint>> GenerateWaypointsForCircleAsync(double centerLat, double centerLon, double radius, double altitude, double speed, string allPointsAction, int startingId, double photoInterval)
+        private async Task<List<Waypoint>> GenerateWaypointsForCircleAsync(double centerLat, double centerLon, double semiMajorAxis, double semiMinorAxis, double altitude, double speed, string allPointsAction, int startingId, double photoInterval)
         {
             var waypoints = new List<Waypoint>();
-            double circumference = 2 * Math.PI * radius;  // Circumference of the circle
-            double distancePerPhoto = speed * photoInterval;  // Distance traveled per photo interval
-            int numberOfWaypoints = (int)(circumference / distancePerPhoto);  // Calculate number of waypoints
+            double circumference = 2 * Math.PI * Math.Sqrt((semiMajorAxis * semiMajorAxis + semiMinorAxis * semiMinorAxis) / 2);  // Ellipsin arvioitu kehä
+            double distancePerPhoto = speed * photoInterval;
+            int numberOfWaypoints = (int)(circumference / distancePerPhoto);
 
-            double angleStep = 360.0 / numberOfWaypoints;  // Divide the circle into equal angles
-            double distanceCovered = 0;  // Track distance covered between waypoints
-            int id = startingId;  // Initialize waypoint Id
-
+            double angleStep = 360.0 / numberOfWaypoints;  // Jaetaan ellipsi yhtä suuriin kulmiin
+            double distanceCovered = 0;
+            int id = startingId;
 
             for (int i = 0; i < numberOfWaypoints; i++)
             {
-                double angle = i * angleStep;  // Calculate the angle for the current waypoint
+                double angle = i * angleStep;  // Laske kulma nykyiselle reittipisteelle
 
-                // Convert angle to radians
+                // Muunna kulma radiaaneiksi
                 double angleRad = angle * (Math.PI / 180.0);
 
-                // Calculate waypoint's latitude and longitude using the Haversine formula
-                double waypointLat = centerLat + (radius / 111000.0) * Math.Cos(angleRad);  // Latitude displacement
-                double waypointLon = centerLon + (radius / (111000.0 * Math.Cos(centerLat * Math.PI / 180.0))) * Math.Sin(angleRad);  // Longitude displacement
+                // Parametriset yhtälöt ellipsin reittipisteiden laskemiseen
+                double waypointLat = centerLat + (semiMajorAxis / 111000.0) * Math.Cos(angleRad);  // Latitude displacement suurta akselia pitkin
+                double waypointLon = centerLon + (semiMinorAxis / (111000.0 * Math.Cos(centerLat * Math.PI / 180.0))) * Math.Sin(angleRad);  // Longitude displacement pientä akselia pitkin
 
                 if (distanceCovered >= distancePerPhoto)
                 {
-                    // Calculate heading towards the center of the circle
+                    // Laske suunta ellipsin keskipisteeseen
                     double deltaLat = centerLat - waypointLat;
                     double deltaLon = centerLon - waypointLon;
-                    double heading = Math.Atan2(deltaLon, deltaLat) * (180.0 / Math.PI);  // Convert from radians to degrees
+                    double heading = Math.Atan2(deltaLon, deltaLat) * (180.0 / Math.PI);  // Muunna radiaaneista asteiksi
 
-                    // Create and add the waypoint
+                    // Luo ja lisää reittipiste
                     waypoints.Add(new Waypoint
                     {
                         Latitude = waypointLat,
                         Longitude = waypointLon,
                         Altitude = altitude,
-                        Heading = heading,  // Heading is towards the center
+                        Heading = heading,  // Suunta kohti ellipsin keskipistettä
                         GimbalAngle = angle,
                         Speed = speed,
-                        Id = id++,  // Increment Id for each waypoint
+                        Id = id++,  // Lisää yksilöivä Id jokaiselle reittipisteelle
                         Action = allPointsAction
                     });
 
-                    distanceCovered = 0;  // Reset distance covered after generating a waypoint
+                    distanceCovered = 0;
                 }
 
-                distanceCovered += (2 * Math.PI * radius) / numberOfWaypoints;  // Approximate the distance covered along the circle
+                distanceCovered += circumference / numberOfWaypoints;  // Päivitä matkattu etäisyys
             }
 
-            return await Task.FromResult(waypoints);  // Return wrapped in Task
+            return await Task.FromResult(waypoints);  // Palauta tulos Task-objektina
         }
     }
 
