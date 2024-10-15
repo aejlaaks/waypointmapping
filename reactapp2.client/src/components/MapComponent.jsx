@@ -47,6 +47,7 @@ function MapComponent() {
     const [photoInterval, setPhotoInterval] = useState(2); // Photo interval in seconds
     const [overlap, setOverlap] = useState(83);
     const [useEndpointsOnly, setUseEndpointsOnly] = useState(true);  // Add this state to control the switch
+    const [isNorthSouth, setisNorthSouth] = useState(true);  // Add this state to control the switch
 
     const [bounds, setBounds] = useState('');
     const [boundsType, setBoundsType] = useState(["rectangle"]);
@@ -137,6 +138,10 @@ function MapComponent() {
     const handleToggleUseEndpointsOnly = () => {
         setUseEndpointsOnly(prev => !prev);  // Toggle the value
     };
+    const handleToggleisNorthSouth = () => {
+        setisNorthSouth(prev => !prev);  // Toggle the value
+    };
+
 
     useEffect(() => {
         const altitudeNum = parseFloat(altitude);
@@ -807,6 +812,15 @@ function MapComponent() {
                         placeholder="Sensor Height"
                         value={sensorHeight}
                         onChange={(e) => setSensorHeight(e.target.value)}
+                        className="input-style"
+                    />
+                </label>
+                <label>
+                Vaihda suunta pohjoinen etelä
+                    <input
+                        type="checkbox"  // Switch for controlling useEndpointsOnly
+                        checked={isNorthSouth}
+                        onChange={handleToggleUseEndpointsOnly}
                         className="input-style"
                     />
                 </label>
