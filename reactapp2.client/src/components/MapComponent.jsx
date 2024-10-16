@@ -285,6 +285,7 @@ function MapComponent() {
     };
 
 
+
     const onLoad = useCallback((map) => {
         mapRef.current = map;
         const searchBox = new window.google.maps.places.SearchBox(inputRef.current);

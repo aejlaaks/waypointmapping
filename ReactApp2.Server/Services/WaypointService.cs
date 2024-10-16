@@ -207,7 +207,7 @@ namespace KarttaBackEnd2.Server.Services
                                     Latitude = maxLat,  // Sama latitude (maxLat)
                                     Longitude = lng,  // Päivitetty longitude
                                     Altitude = currentAltitude,
-                                    Heading = 0,  // Pohjoiseen
+                                    Heading = 360,  // Pohjoiseen
                                     GimbalAngle = angle,
                                     Speed = speed,
                                     Id = id++,
