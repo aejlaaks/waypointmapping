@@ -613,7 +613,8 @@ function MapComponent() {
             flipPath: flipPath,
             interval: photoInterval,
             in_distance: inDistance,
-            angle:angle,
+            angle: angle,
+            isNorthSouth: isNorthSouth
 
 
         };
@@ -820,7 +821,7 @@ function MapComponent() {
                     <input
                         type="checkbox"  // Switch for controlling useEndpointsOnly
                         checked={isNorthSouth}
-                        onChange={handleToggleUseEndpointsOnly}
+                        onChange={handleToggleisNorthSouth}
                         className="input-style"
                     />
                 </label>

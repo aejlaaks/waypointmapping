@@ -90,7 +90,7 @@ namespace KarttaBackEnd2.Server.Services
                 double maxLng = bounds.Max(b => b.Lng);  // Max longitude (itä)
 
                 double currentAltitude = altitude;  // Korkeus pysyy vakiona
-                isNorthSouth = false;
+                //isNorthSouth = false;
                 // Valitaan suunta
                 if (!isNorthSouth)  // Itä-Länsi-suunnassa
                 {

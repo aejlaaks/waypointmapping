@@ -25,6 +25,7 @@ namespace KarttaBackEnd2.Server.DTOs
         public string? AllPointsAction { get; set; }
         public List<CoordinateCircle> Shapes { get; set; }
         public bool useEndpointsOnly { get; set; }
+        public bool isNorthSouth { get; set; }
     }
 
       

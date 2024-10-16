@@ -34,7 +34,8 @@ namespace KarttaBackEnd2.Server.Controllers
                     request.BoundsType,
                     request.StartingIndex,
                     request.Interval,
-                    request.useEndpointsOnly);
+                    request.useEndpointsOnly,
+                    request.isNorthSouth);
 
                 return Ok(result);
             
