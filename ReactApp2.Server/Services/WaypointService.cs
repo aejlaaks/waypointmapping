@@ -190,7 +190,7 @@ namespace KarttaBackEnd2.Server.Services
                                 Latitude = maxLat,  // Pohjoinen (max latitude)
                                 Longitude = lng,
                                 Altitude = currentAltitude,
-                                Heading = 180,  // Etelään
+                                Heading = 90,  // Etelään
                                 GimbalAngle = angle,
                                 Speed = speed,
                                 Id = id++,
@@ -207,7 +207,7 @@ namespace KarttaBackEnd2.Server.Services
                                     Latitude = maxLat,  // Sama latitude (maxLat)
                                     Longitude = lng,  // Päivitetty longitude
                                     Altitude = currentAltitude,
-                                    Heading = 360,  // Pohjoiseen
+                                    Heading = 180,  // Pohjoiseen
                                     GimbalAngle = angle,
                                     Speed = speed,
                                     Id = id++,
@@ -220,7 +220,7 @@ namespace KarttaBackEnd2.Server.Services
                                     Latitude = minLat,  // Sama latitude (minLat)
                                     Longitude = lng,  // Sama longitude (lng)
                                     Altitude = currentAltitude,
-                                    Heading = 180,  // Etelään
+                                    Heading = 90,  // Etelään
                                     GimbalAngle = angle,
                                     Speed = speed,
                                     Id = id++,
