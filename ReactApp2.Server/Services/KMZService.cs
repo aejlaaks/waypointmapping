@@ -14,13 +14,8 @@ namespace KarttaBackEnd2.Server.Services
         public async Task<byte[]> GenerateKmzAsync(FlyToWaylineRequest request)
         {
             // Aseta oletusarvot tarvittaessa
-            await SetDefaultValuesAsync(request);
-            request.Flip = true;
-            // Tarkista ja käännä reitti, jos Flip on asetettu
-            if (request.Flip)
-            {
-                request.Waypoints = await FlipDroneDirectionAsync(request.Waypoints);
-            }
+            SetDefaultValues(request);
+           
 
             // Generoi KML sisällön ohjelmallisesti
             string kmlContent = await GenerateKmlAsync(request);
@@ -32,7 +27,7 @@ namespace KarttaBackEnd2.Server.Services
             return await CreateKmzAsync(kmlContent, wpmlContent);
         }
 
-        private async Task SetDefaultValuesAsync(FlyToWaylineRequest request)
+        private void SetDefaultValues(FlyToWaylineRequest request)
         {
             if (request.Waypoints == null || !request.Waypoints.Any())
             {
@@ -215,20 +210,6 @@ namespace KarttaBackEnd2.Server.Services
             }
         }
 
-        // Dronen suunnan kääntäminen
-        private async Task<List<WaypointGen>> FlipDroneDirectionAsync(List<WaypointGen> waypoints)
-        {
-            if (waypoints.Count == 0)
-                return waypoints;
-
-            // Laske puoliväli listasta ja käännä dronen suunta etelään (180°)
-            int midPoint = waypoints.Count / 2;
-            for (int i = midPoint; i < waypoints.Count; i++)
-            {
-                waypoints[i].WaypointHeadingAngle = 180; // Käännä suunta etelään (180°)
-            }
-
-            return await Task.FromResult(waypoints);
-        }
+     
     }
 }

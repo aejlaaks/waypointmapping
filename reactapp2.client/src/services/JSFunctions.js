@@ -60,9 +60,8 @@ export const GenerateWaypointInfoboxText = (waypointMarker) => {
     } else if (waypointMarker.action == "stopRecord") {
         select = '<option value="noAction">No Action</option><option value="takePhoto">Take Picture</option><option value="startRecord">Start Recording</option><option selected value="stopRecord">Stop Recording</option>';
     }
-
-    return `<div><h2 class="text-center" id="selectedWaypointId">
-    ${waypointMarker.id}</h2><div class="text-center">
+    return `<div style="color: black;"><h2 class="text-center" id="selectedWaypointId" style="color: black;">
+    ${waypointMarker.id}</h2><div class="text-center" style="color: black;">
     ${waypointMarker.lat}, ${waypointMarker.lng}</div><br/>
     Altitude:<br/><input type="text" id="editWaypointAltitude" value="${waypointMarker.altitude}" /><span class="unitsLabel">Meters</span><br/>
     Speed:<br/><input type="text" id="editWaypointSpeed" value="${waypointMarker.speed}" /><span class="unitsLabel">Meters</span>/s<br/>
@@ -70,9 +69,10 @@ export const GenerateWaypointInfoboxText = (waypointMarker) => {
     Heading:<br/><input type="text" id="editWaypointHeading" value="${waypointMarker.heading}" />Degrees North<br/>
     Action:<br/><select id="editWaypointAction">${select}</select><br />
     Waypoint Number:<br/><input type="text" id="editWaypointID" value="${waypointMarker.id}" /><br/><br/>
-    <div class="text-center">
+    <div class="text-center" style="color: black;">
     <button class="btn btn-success" id="editWaypointSave"">Save</button><span> </span>
-    <button class="btn btn-danger" id"editWaypointRemovee">Remove</button></div></div>`;
+    <button class="btn btn-danger" id="editWaypointRemovee">Remove</button></div></div>`;
+
 };
 
 export const GenerateShapeInfoboxText = (shape) => {
