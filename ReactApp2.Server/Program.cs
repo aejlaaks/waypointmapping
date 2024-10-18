@@ -27,9 +27,9 @@ namespace ReactApp2.Server
                 options.SignIn.RequireConfirmedEmail = true;
             })
             .AddEntityFrameworkStores<ApplicationDbContext>() // Add this line
-            .AddDefaultTokenProviders(); // Add this line
+            .AddDefaultTokenProviders(); 
 
-            builder.Services.AddScoped<WaypointService>();
+            builder.Services.AddScoped<IWaypointService, WaypointService>();
             builder.Services.AddScoped<IKMZService, KMZService>();
             builder.Services.AddTransient<IEmailSender, EmailSender>(); // Rekisteröi EmailSender-palvelu
 
