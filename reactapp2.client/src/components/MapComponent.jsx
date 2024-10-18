@@ -34,6 +34,7 @@ function MapComponent() {
         googleMapsApiKey: 'AIzaSyCbrrhYSaiyels_EyP05HalRiWcev73g0E', // Replace with your API key
         libraries,
     });
+    const [path, setPath] = useState([]);
 
     const [shapes, setShapes] = useState([]);
     const [searchLocation, setSearchLocation] = useState('');
@@ -283,8 +284,30 @@ function MapComponent() {
             waypoint.marker.setLabel(`${waypoint.id}`);
         });
     };
+    // Funktio, joka laskee kaarevan pisteen kahden pisteen v‰lille
+    const generateArcPoints = (start, end, curvature) => {
+        const points = [];
+        const numPoints = 30; // Suurempi m‰‰r‰ pisteit‰ tekee kaaresta pehme‰mm‰n
+        const deltaLat = (end.lat - start.lat) / numPoints;
+        const deltaLng = (end.lng - start.lng) / numPoints;
+        for (let i = 0; i <= numPoints; i++) {
+            const lat = start.lat + deltaLat * i;
+            const lng = start.lng + deltaLng * i + Math.sin((i / numPoints) * Math.PI) * curvature;
+            points.push({ lat, lng });
+        }
+        return points;
+    };
+    // K‰sittelee karttaklikkaukset, lis‰t‰‰n koordinaatit polulle (viivalle)
+    const handleMapClickFree = (event) => {
+        // Hanki karttaklikkauksen sijainti (latitude ja longitude)
+        const newPoint = {
+            lat: event.latLng.lat(),
+            lng: event.latLng.lng(),
+        };
 
-
+        // Lis‰‰ uusi piste suoraan path-muuttujaan
+        setPath((prevPath) => [...prevPath, newPoint]);
+    };
 
     const onLoad = useCallback((map) => {
         mapRef.current = map;
@@ -332,13 +355,23 @@ function MapComponent() {
             const center = shape.getCenter();
             coordinates = `${center.lat()},${center.lng()}; radius: ${shape.getRadius()}`;
         }
+        else if (type === 'polyline') {
+            // K‰sitell‰‰n viiva ilman kaarevuutta
+            const path = shape.getPath();
+            const pathCoordinates = [];
+            for (let i = 0; i < path.getLength(); i++) {
+                const point = path.getAt(i);
+                pathCoordinates.push(`${point.lat()},${point.lng()}`);
+            }
+            coordinates = pathCoordinates.join(';');
+        }
         setBounds(coordinates);
         setBoundsType(type);
 
         setStartingIndex((prevIndex) => prevIndex + 1);
 
         // Set the position of the info window to the center of the shape
-        const position = type === 'circle' ? shape.getCenter() : shape.getBounds().getCenter();
+        const position = type === 'circle' ? shape.getCenter() : (shape.getBounds ? shape.getBounds().getCenter() : null);
         setInfoWindowPosition(position);
         //setInfoWindowVisible(true);
 
@@ -565,7 +598,7 @@ function MapComponent() {
     const submitFormFetch = () => {
 
         let validCoordinates = ' '
-        if (boundsType == "rectangle") {
+        if (boundsType == "rectangle" || boundsType == "polyline") {
             validCoordinates = validateAndCorrectCoordinates(bounds);
         }
 
@@ -887,7 +920,11 @@ function MapComponent() {
                         center={center}
                         zoom={10}
                         onLoad={onLoad} // Add this line to set the onLoad callback
+                        onClick={handleMapClickFree}  // K‰ytt‰j‰ voi klikata karttaa lis‰t‰kseen pisteit‰
+
                     >
+                        {path.length > 0 && <Polyline path={path} options={{ strokeColor: '#FF0000', strokeWeight: 2 }} />}
+
                         <DrawingManager
                             onLoad={(drawingManager) => (drawingManagerRef.current = drawingManager)}
                             onOverlayComplete={(e) => onDrawingComplete(e.overlay, e.type)}
@@ -915,6 +952,7 @@ function MapComponent() {
                         <button className="generate-kml-button" onClick={generateKml}>Generate KML</button>
                         <button className="draw-rectangle-button"  onClick={() => enableDrawingMode('rectangle')}>Draw Rectangle</button>
                         <button className="draw-rectangle-button" onClick={() => enableDrawingMode('circle')}>Draw circle</button>
+                        <button className="draw-rectangle-button" onClick={() => enableDrawingMode('polyline')}>Draw plyline</button>
                         <button className="clear-shapes-button" onClick={() => handleClearShapes()}>Clear shapest</button>
                         </div>
                     </GoogleMap>
