@@ -142,7 +142,7 @@ namespace KarttaBackEnd2.Server.Services
         }
 
 
-        private Waypoint CreateWaypoint(double lat, double lng, double altitude, double heading, int angle, double speed, ref int id, string action)
+        public Waypoint CreateWaypoint(double lat, double lng, double altitude, double heading, int angle, double speed, ref int id, string action)
         {
             return new Waypoint
             {
@@ -150,6 +150,7 @@ namespace KarttaBackEnd2.Server.Services
                 Longitude = lng,
                 Altitude = altitude,
                 Heading = heading,
+                Yaw = heading,
                 GimbalAngle = angle,
                 Speed = speed,
                 Id = id++,
@@ -157,7 +158,7 @@ namespace KarttaBackEnd2.Server.Services
             };
         }
 
-        private bool IsPointInPolygon(List<Coordinate> polygon, double lat, double lng)
+        public bool IsPointInPolygon(List<Coordinate> polygon, double lat, double lng)
         {
             bool inside = false;
             for (int i = 0, j = polygon.Count - 1; i < polygon.Count; j = i++)
@@ -351,7 +352,7 @@ namespace KarttaBackEnd2.Server.Services
 
 
         // Ympyrän reittipisteiden generointilogiikka
-        private async Task<List<Waypoint>> GenerateWaypointsForCircleAsync(
+        public async Task<List<Waypoint>> GenerateWaypointsForCircleAsync(
             double centerLat,
             double centerLon,
             double semiMajorAxis,

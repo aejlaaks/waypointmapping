@@ -143,10 +143,10 @@ namespace KarttaBackEnd2.Server.Services
                 var lng = waypoint.Longitude.ToString("F14", CultureInfo.InvariantCulture);
                 var height = waypoint.ExecuteHeight.ToString(CultureInfo.InvariantCulture);
                 var speed = waypoint.WaypointSpeed.ToString(CultureInfo.InvariantCulture);
-                var headingMode = waypoint.WaypointHeadingMode ?? "followWayline";
+                var headingMode = waypoint.WaypointHeadingMode ?? "smooth";
                 var headingAngle = waypoint.WaypointHeadingAngle ?? "0";
                 var waypointPoiPoint = waypoint.WaypointPoiPoint ?? "0.000000,0.000000,0.000000";
-                var headingAngleEnable = waypoint.WaypointHeadingAngleEnable ?? 1;
+                var headingAngleEnable = waypoint.WaypointHeadingAngleEnable ?? 0;
                 var pathMode = waypoint.WaypointHeadingPathMode ?? "followBadArc";
                 var turnMode = waypoint.WaypointTurnMode ?? "toPointAndPassWithContinuityCurvature";
                 var dampingDist = waypoint.WaypointTurnDampingDist.ToString(CultureInfo.InvariantCulture) ?? "0";
@@ -154,26 +154,62 @@ namespace KarttaBackEnd2.Server.Services
 
                 // Lisää Placemark osio WPML sisällössä
                 wpmlContent.AppendLine($@"
-                  <Placemark>
-                      <Point>
-                          <coordinates>{lng},{lat}</coordinates>
-                      </Point>
-                      <wpml:index>{waypoint.Index}</wpml:index>
-                      <wpml:executeHeight>{height}</wpml:executeHeight>
-                      <wpml:waypointSpeed>{speed}</wpml:waypointSpeed>
-                      <wpml:waypointHeadingParam>
-                          <wpml:waypointHeadingMode>{headingMode}</wpml:waypointHeadingMode>
-                          <wpml:waypointHeadingAngle>{headingAngle}</wpml:waypointHeadingAngle>
-                          <wpml:waypointPoiPoint>{waypointPoiPoint}</wpml:waypointPoiPoint>
-                          <wpml:waypointHeadingAngleEnable>{headingAngleEnable}</wpml:waypointHeadingAngleEnable>
-                          <wpml:waypointHeadingPathMode>{pathMode}</wpml:waypointHeadingPathMode>
-                      </wpml:waypointHeadingParam>
-                      <wpml:waypointTurnParam>
-                          <wpml:waypointTurnMode>{turnMode}</wpml:waypointTurnMode>
-                          <wpml:waypointTurnDampingDist>{dampingDist}</wpml:waypointTurnDampingDist>
-                      </wpml:waypointTurnParam>
-                      <wpml:useStraightLine>{useStraightLine}</wpml:useStraightLine>
-                  </Placemark>");
+                       <Placemark>
+              <Point>
+                  <coordinates>{lng},{lat}</coordinates>
+              </Point>
+              <wpml:index>{waypoint.Index}</wpml:index>
+              <wpml:executeHeight>{height}</wpml:executeHeight>
+              <wpml:waypointSpeed>{speed}</wpml:waypointSpeed>
+              <wpml:waypointHeadingParam>
+                  <wpml:waypointHeadingMode>{headingMode}</wpml:waypointHeadingMode>
+                  <wpml:waypointHeadingAngle>{headingAngle}</wpml:waypointHeadingAngle>
+                  <wpml:waypointPoiPoint>{waypointPoiPoint}</wpml:waypointPoiPoint>
+                  <wpml:waypointHeadingAngleEnable>{headingAngleEnable}</wpml:waypointHeadingAngleEnable>
+                  <wpml:waypointHeadingPathMode>{pathMode}</wpml:waypointHeadingPathMode>
+              </wpml:waypointHeadingParam>
+              <wpml:waypointTurnParam>
+                  <wpml:waypointTurnMode>{turnMode}</wpml:waypointTurnMode>
+                  <wpml:waypointTurnDampingDist>{dampingDist}</wpml:waypointTurnDampingDist>
+              </wpml:waypointTurnParam>
+              <wpml:useStraightLine>{useStraightLine}</wpml:useStraightLine>
+              <wpml:actionGroup>
+                  <wpml:actionGroupId>1</wpml:actionGroupId>
+                  <wpml:actionGroupStartIndex>2</wpml:actionGroupStartIndex>
+                  <wpml:actionGroupEndIndex>2</wpml:actionGroupEndIndex>
+                  <wpml:actionGroupMode>parallel</wpml:actionGroupMode>
+                  <wpml:actionTrigger>
+                      <wpml:actionTriggerType>reachPoint</wpml:actionTriggerType>
+                  </wpml:actionTrigger>
+                  <wpml:action>
+                      <wpml:actionId>1</wpml:actionId>
+                      <wpml:actionActuatorFunc>gimbalRotate</wpml:actionActuatorFunc>
+                           <wpml:action>
+                    <wpml:actionId>6</wpml:actionId>
+                    <wpml:actionActuatorFunc>takePhoto</wpml:actionActuatorFunc>
+                    <wpml:actionActuatorFuncParam>
+                      <wpml:payloadPositionIndex>0</wpml:payloadPositionIndex>
+                    </wpml:actionActuatorFuncParam>
+                  </wpml:action>
+              </wpml:actionGroup>
+         <wpml:actionGroup>
+          <wpml:actionGroupId>2</wpml:actionGroupId>
+          <wpml:actionGroupStartIndex>2</wpml:actionGroupStartIndex>
+          <wpml:actionGroupEndIndex>2</wpml:actionGroupEndIndex>
+          <wpml:actionGroupMode>parallel</wpml:actionGroupMode>
+          <wpml:actionTrigger>
+            <wpml:actionTriggerType>reachPoint</wpml:actionTriggerType>
+          </wpml:actionTrigger>
+          <wpml:action>
+            <wpml:actionId>7</wpml:actionId>
+            <wpml:actionActuatorFunc>gimbalEvenlyRotate</wpml:actionActuatorFunc>
+            <wpml:actionActuatorFuncParam>
+              <wpml:gimbalPitchRotateAngle>-45</wpml:gimbalPitchRotateAngle>
+              <wpml:payloadPositionIndex>0</wpml:payloadPositionIndex>
+            </wpml:actionActuatorFuncParam>
+          </wpml:action>
+        </wpml:actionGroup>
+          </Placemark>");
             }
 
             wpmlContent.AppendLine(@"    </Folder>");

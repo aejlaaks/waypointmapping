@@ -15,5 +15,6 @@
         public int FlightOrientation { get; set; } // 0 = East-West, 1 = North-South
         public bool FlipPath { get; set; } // Kääntää reitin
         public bool StraightenPaths { get; set; } // Suoristaa reitit
+        public double Yaw { get; internal set; }
     }
 }

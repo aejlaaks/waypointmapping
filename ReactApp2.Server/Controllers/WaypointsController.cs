@@ -13,9 +13,9 @@ namespace KarttaBackEnd2.Server.Controllers
     [Route("api/[controller]")]
     public class WaypointsController : ControllerBase
     {
-        private readonly WaypointService _waypointService;
+        private readonly IWaypointService _waypointService;
 
-        public WaypointsController( WaypointService waypointService)
+        public WaypointsController( IWaypointService waypointService)
         {
             _waypointService = waypointService;
         }
