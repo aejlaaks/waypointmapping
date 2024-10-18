@@ -61,7 +61,8 @@ namespace KarttaBackEnd2.Server.Services
                     useEndpointsOnly,
                     
                     ref id,
-                    allPointsAction
+                    allPointsAction,
+                     isNorthSouth
         );
                 waypoints.AddRange(polylineWaypoints);
             }
@@ -69,19 +70,20 @@ namespace KarttaBackEnd2.Server.Services
             return await Task.FromResult(waypoints);
         }
 
-       
+
 
 
         private List<Waypoint> GenerateWaypointsForShape(
-      List<Coordinate> coordinates,
-      double altitude,
-      double speed,
-      int angle,
-      double in_distance,
-      double photoInterval,
-      bool useEndpointsOnly,
-      ref int id,
-      string allPointsAction)
+     List<Coordinate> coordinates,
+     double altitude,
+     double speed,
+     int angle,
+     double in_distance,
+     double photoInterval,
+     bool useEndpointsOnly,
+     ref int id,
+     string allPointsAction,
+     bool isNorthSouth)
         {
             var waypoints = new List<Waypoint>();
 
@@ -95,51 +97,108 @@ namespace KarttaBackEnd2.Server.Services
             double latStep = in_distance / 111320.0; // Convert in_distance from meters to degrees latitude
             double lngStep = photoInterval * speed / (111320.0 * Math.Cos(minLat * Math.PI / 180.0)); // Distance covered in one photo interval
 
-            bool goingEast = true; // To alternate direction
-
-            for (double lat = minLat; lat <= maxLat; lat += latStep)
+            if (isNorthSouth)
             {
-                List<Waypoint> rowWaypoints = new List<Waypoint>();
+                // North-South direction
+                bool goingNorth = true; // To alternate direction
 
-                if (goingEast)
+                for (double lng = minLng; lng <= maxLng; lng += lngStep)
                 {
-                    for (double lng = minLng; lng <= maxLng; lng += lngStep)
+                    List<Waypoint> columnWaypoints = new List<Waypoint>();
+
+                    if (goingNorth)
                     {
-                        if (IsPointInPolygon(coordinates, lat, lng))
+                        for (double lat = minLat; lat <= maxLat; lat += latStep)
                         {
-                            rowWaypoints.Add(CreateWaypoint(lat, lng, altitude, 90, angle, speed, ref id, allPointsAction));
+                            if (IsPointInPolygon(coordinates, lat, lng))
+                            {
+                                columnWaypoints.Add(CreateWaypoint(lat, lng, altitude, 0, angle, speed, ref id, allPointsAction));
+                            }
                         }
                     }
-                }
-                else
-                {
-                    for (double lng = maxLng; lng >= minLng; lng -= lngStep)
+                    else
                     {
-                        if (IsPointInPolygon(coordinates, lat, lng))
+                        for (double lat = maxLat; lat >= minLat; lat -= latStep)
                         {
-                            rowWaypoints.Add(CreateWaypoint(lat, lng, altitude, 270, angle, speed, ref id, allPointsAction));
+                            if (IsPointInPolygon(coordinates, lat, lng))
+                            {
+                                columnWaypoints.Add(CreateWaypoint(lat, lng, altitude, 180, angle, speed, ref id, allPointsAction));
+                            }
                         }
                     }
-                }
 
-                if (useEndpointsOnly && rowWaypoints.Count > 0)
-                {
-                    waypoints.Add(rowWaypoints.First());
-                    if (rowWaypoints.Count > 1)
+                    if (useEndpointsOnly && columnWaypoints.Count > 0)
                     {
-                        waypoints.Add(rowWaypoints.Last());
+                        waypoints.Add(columnWaypoints.First());
+                        if (columnWaypoints.Count > 1)
+                        {
+                            waypoints.Add(columnWaypoints.Last());
+                        }
                     }
-                }
-                else
-                {
-                    waypoints.AddRange(rowWaypoints);
-                }
+                    else
+                    {
+                        waypoints.AddRange(columnWaypoints);
+                    }
 
-                goingEast = !goingEast; // Change direction for the next row
+                    goingNorth = !goingNorth; // Change direction for the next column
+                }
+            }
+            else
+            {
+                // East-West direction
+                bool goingEast = true; // To alternate direction
+
+                for (double lat = minLat; lat <= maxLat; lat += latStep)
+                {
+                    List<Waypoint> rowWaypoints = new List<Waypoint>();
+
+                    if (goingEast)
+                    {
+                        for (double lng = minLng; lng <= maxLng; lng += lngStep)
+                        {
+                            if (IsPointInPolygon(coordinates, lat, lng))
+                            {
+                                rowWaypoints.Add(CreateWaypoint(lat, lng, altitude, 90, angle, speed, ref id, allPointsAction));
+                            }
+                        }
+                    }
+                    else
+                    {
+                        for (double lng = maxLng; lng >= minLng; lng -= lngStep)
+                        {
+                            if (IsPointInPolygon(coordinates, lat, lng))
+                            {
+                                rowWaypoints.Add(CreateWaypoint(lat, lng, altitude, 270, angle, speed, ref id, allPointsAction));
+                            }
+                        }
+                    }
+
+                    if (useEndpointsOnly && rowWaypoints.Count > 0)
+                    {
+                        waypoints.Add(rowWaypoints.First());
+                        if (rowWaypoints.Count > 1)
+                        {
+                            waypoints.Add(rowWaypoints.Last());
+                        }
+                    }
+                    else
+                    {
+                        waypoints.AddRange(rowWaypoints);
+                    }
+
+                    goingEast = !goingEast; // Change direction for the next row
+                }
+            }
+            id = 1;
+            // Ensure correct waypoint numbering
+            for (int i = 0; i < waypoints.Count; i++)
+            {
+                waypoints[i].Id = id++;
             }
 
             return waypoints;
         }
+
 
 
         public Waypoint CreateWaypoint(double lat, double lng, double altitude, double heading, int angle, double speed, ref int id, string action)

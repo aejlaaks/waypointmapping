@@ -9,9 +9,10 @@ namespace KarttaBackEnd2.Server.Controllers
     [Route("api/[controller]")]
     public class KMZController : ControllerBase
     {
-        private readonly KMZService _kmzService;
+        private readonly 
+            IKMZService _kmzService;
 
-        public KMZController(KMZService kmzService)
+        public KMZController(IKMZService kmzService)
         {
             _kmzService = kmzService;
         }
