@@ -83,9 +83,9 @@ stages:
         targetFolder: '/var/www/map/react'
         cleanTargetFolder: true
     - task: SSH@0
-      displayName: 'Käynnistä NGINX uudelleen'
+      displayName: 'Käynnistä NGINX ja kestrel uudelleen'
       inputs:
         sshEndpoint: 'test'
         runOptions: 'inline'
-        inline: 'sudo systemctl restart nginx'
+        inline: 'sudo systemctl restart map.service && nginx'
 
