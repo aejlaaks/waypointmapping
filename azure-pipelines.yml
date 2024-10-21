@@ -87,5 +87,5 @@ stages:
       inputs:
         sshEndpoint: 'test'
         runOptions: 'inline'
-        inline: 'sudo systemctl restart map.service && nginx'
+        inline: 'sudo systemctl restart nginx'
 
