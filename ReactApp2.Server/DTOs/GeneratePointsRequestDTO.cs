@@ -28,6 +28,7 @@ namespace KarttaBackEnd2.Server.DTOs
 
         public bool UseEndpointsOnly { get; set; }
         public bool isNorthSouth { get; set; }
+        public bool IsNorthSouth { get; set; }
         public int PhotoInterval { get; set; }
     }
 
