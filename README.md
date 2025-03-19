@@ -40,7 +40,6 @@ The application now includes improved support for polyline-based flight paths wi
    - Improved form layout and control organization
 
 ### UI Screenshots
-![image](https://github.com/user-attachments/assets/ca230b8f-35d7-4669-a06f-0d11c332353e)
 
 ![polylineWithout](https://github.com/user-attachments/assets/6c9497c7-b12b-410f-bc7c-480530b04c5f)
 ![rectangleWaypoints](https://github.com/user-attachments/assets/49d0f90d-e274-42dd-a165-d40f6d71539b)
