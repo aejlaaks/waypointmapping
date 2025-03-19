@@ -5,36 +5,45 @@ using Waypoint = KarttaBackEnd2.Server.Models.Waypoint;
 
 namespace KarttaBackEnd2.Server.Services
 {
+    /// <summary>
+    /// Legacy implementation of IWaypointService maintained for backward compatibility
+    /// </summary>
     public class WaypointService : IWaypointService
     {
-        // Generoi reittipisteitä polyline-muodolle
+        private readonly ILogger<WaypointService> _logger;
+
+        public WaypointService(ILogger<WaypointService> logger)
+        {
+            _logger = logger;
+        }
+
+        // Legacy implementation - this method will be removed in the future
         public async Task<List<Waypoint>> GenerateWaypointsAsync(
-            string allPointsAction,
+            string action,
             int unitType_in,
             double altitude,
-            double speed,  // Nopeus metreinä sekunnissa
-            int angle,
+            double speed,
+            int angle, // kept for backward compatibility but no longer used
             double in_distance,
-            List<Coordinate> bounds,  // Koordinaatit
-            string boundsType,  // Muodon tyyppi, kuten "polyline", "rectangle", "circle"
+            List<Coordinate> bounds,
+            string boundsType,
             int in_startingIndex,
             double photoInterval = 3,
-            bool useEndpointsOnly = false,  // Kontrolloi päätepisteiden logiikkaa
-            bool isNorthSouth = false  // Uusi parametri suunnan valintaan: true = Pohjoinen-Etelä, false = Itä-Länsi
+            bool useEndpointsOnly = false,
+            bool isNorthSouth = false
         )
         {
+            _logger.LogInformation("Using legacy waypoint generation method");
             var waypoints = new List<Waypoint>();
             int id = in_startingIndex;
-            allPointsAction = "takePhoto";
+            action = string.IsNullOrEmpty(action) ? "takePhoto" : action;
 
             if (boundsType == "rectangle" || boundsType == "polygon")
             {
-                // Alkuperäinen suorakulmion/polygonin käsittelylogiikka
-                waypoints.AddRange(GenerateWaypointsForRectangleOrPolygon(bounds, altitude, speed, angle, in_distance, useEndpointsOnly, isNorthSouth, ref id, allPointsAction));
+                waypoints.AddRange(GenerateWaypointsForRectangleOrPolygon(bounds, altitude, speed, angle, in_distance, useEndpointsOnly, isNorthSouth, ref id, action));
             }
             else if (boundsType == "circle")
             {
-                // Ympyrän reittien generointilogiikka
                 foreach (var bound in bounds)
                 {
                     double centerLat = bound.Lat;
@@ -42,16 +51,13 @@ namespace KarttaBackEnd2.Server.Services
                     double semiMajorAxis = bound.Radius;  // Suuri akseli
                     double semiMinorAxis = bound.Radius / 2;  // Pieni akseli
 
-                    // Luo ympyrän tai ellipsin reittipisteet
-                    var circleWaypoints = await GenerateWaypointsForCircleAsync(centerLat, centerLon, semiMajorAxis, semiMinorAxis, altitude, speed, allPointsAction, id, photoInterval);
+                    var circleWaypoints = await GenerateWaypointsForCircleAsync(centerLat, centerLon, semiMajorAxis, semiMinorAxis, altitude, speed, action, id, photoInterval);
                     waypoints.AddRange(circleWaypoints);
                 }
             }
             else if (boundsType == "polyline")
             {
-                // Polyline-logiikka: luodaan reittipisteitä polyline-muodolle
-                var polylineWaypoints =  // Kutsu GenerateWaypointsForShape metodia
-                 waypoints = GenerateWaypointsForShape(
+                waypoints = GenerateWaypointsForShape(
                     bounds,
                     altitude,
                     speed,
@@ -59,160 +65,128 @@ namespace KarttaBackEnd2.Server.Services
                     in_distance,
                     photoInterval,
                     useEndpointsOnly,
-                    
                     ref id,
-                    allPointsAction,
-                     isNorthSouth
-        );
-                waypoints.AddRange(polylineWaypoints);
+                    action,
+                    isNorthSouth
+                );
             }
 
             return await Task.FromResult(waypoints);
         }
 
-
-
+        // Implementation for the new interface - delegates to the legacy method for now
+        public async Task<List<Waypoint>> GenerateWaypointsAsync(List<ShapeData> shapes, WaypointParameters parameters)
+        {
+            _logger.LogWarning("New interface called on legacy WaypointService - this is not fully implemented");
+            
+            if (shapes == null || shapes.Count == 0 || shapes[0].Coordinates == null)
+            {
+                return new List<Waypoint>();
+            }
+            
+            // Just use the first shape for compatibility
+            var shape = shapes[0];
+            string boundsType = shape.Type;
+            List<Coordinate> bounds = shape.Coordinates;
+            
+            return await GenerateWaypointsAsync(
+                parameters.Action,
+                parameters.UnitType,
+                parameters.Altitude,
+                parameters.Speed,
+                0, // Angle is no longer used
+                parameters.LineSpacing,
+                bounds,
+                boundsType,
+                parameters.StartingIndex,
+                parameters.PhotoInterval,
+                parameters.UseEndpointsOnly,
+                parameters.IsNorthSouth
+            );
+        }
 
         private List<Waypoint> GenerateWaypointsForShape(
-     List<Coordinate> coordinates,
-     double altitude,
-     double speed,
-     int angle,
-     double in_distance,
-     double photoInterval,
-     bool useEndpointsOnly,
-     ref int id,
-     string allPointsAction,
-     bool isNorthSouth)
+            List<Coordinate> coordinates,
+            double altitude,
+            double speed,
+            int angle,
+            double in_distance,
+            double photoInterval,
+            bool useEndpointsOnly,
+            ref int id,
+            string allPointsAction,
+            bool isNorthSouth)
         {
             var waypoints = new List<Waypoint>();
 
-            // Determine shape bounds
-            double minLat = coordinates.Min(c => c.Lat);
-            double maxLat = coordinates.Max(c => c.Lat);
-            double minLng = coordinates.Min(c => c.Lng);
-            double maxLng = coordinates.Max(c => c.Lng);
-
-            // Calculate steps
-            double latStep = in_distance / 111320.0; // Convert in_distance from meters to degrees latitude
-            double lngStep = photoInterval * speed / (111320.0 * Math.Cos(minLat * Math.PI / 180.0)); // Distance covered in one photo interval
-
-            if (isNorthSouth)
+            // For polylines, we'll generate waypoints directly on the line segments
+            if (coordinates.Count < 2)
             {
-                // North-South direction
-                bool goingNorth = true; // To alternate direction
-
-                for (double lng = minLng; lng <= maxLng; lng += lngStep)
-                {
-                    List<Waypoint> columnWaypoints = new List<Waypoint>();
-
-                    if (goingNorth)
-                    {
-                        for (double lat = minLat; lat <= maxLat; lat += latStep)
-                        {
-                            if (IsPointInPolygon(coordinates, lat, lng))
-                            {
-                                columnWaypoints.Add(CreateWaypoint(lat, lng, altitude, 0, angle, speed, ref id, allPointsAction));
-                            }
-                        }
-                    }
-                    else
-                    {
-                        for (double lat = maxLat; lat >= minLat; lat -= latStep)
-                        {
-                            if (IsPointInPolygon(coordinates, lat, lng))
-                            {
-                                columnWaypoints.Add(CreateWaypoint(lat, lng, altitude, 180, angle, speed, ref id, allPointsAction));
-                            }
-                        }
-                    }
-
-                    if (useEndpointsOnly && columnWaypoints.Count > 0)
-                    {
-                        waypoints.Add(columnWaypoints.First());
-                        if (columnWaypoints.Count > 1)
-                        {
-                            waypoints.Add(columnWaypoints.Last());
-                        }
-                    }
-                    else
-                    {
-                        waypoints.AddRange(columnWaypoints);
-                    }
-
-                    goingNorth = !goingNorth; // Change direction for the next column
-                }
+                return waypoints;
             }
-            else
-            {
-                // East-West direction
-                bool goingEast = true; // To alternate direction
 
-                for (double lat = minLat; lat <= maxLat; lat += latStep)
+            // Simple case: just add waypoints at each coordinate
+            if (useEndpointsOnly)
+            {
+                foreach (var coordinate in coordinates)
                 {
-                    List<Waypoint> rowWaypoints = new List<Waypoint>();
-
-                    if (goingEast)
-                    {
-                        for (double lng = minLng; lng <= maxLng; lng += lngStep)
-                        {
-                            if (IsPointInPolygon(coordinates, lat, lng))
-                            {
-                                rowWaypoints.Add(CreateWaypoint(lat, lng, altitude, 90, angle, speed, ref id, allPointsAction));
-                            }
-                        }
-                    }
-                    else
-                    {
-                        for (double lng = maxLng; lng >= minLng; lng -= lngStep)
-                        {
-                            if (IsPointInPolygon(coordinates, lat, lng))
-                            {
-                                rowWaypoints.Add(CreateWaypoint(lat, lng, altitude, 270, angle, speed, ref id, allPointsAction));
-                            }
-                        }
-                    }
-
-                    if (useEndpointsOnly && rowWaypoints.Count > 0)
-                    {
-                        waypoints.Add(rowWaypoints.First());
-                        if (rowWaypoints.Count > 1)
-                        {
-                            waypoints.Add(rowWaypoints.Last());
-                        }
-                    }
-                    else
-                    {
-                        waypoints.AddRange(rowWaypoints);
-                    }
-
-                    goingEast = !goingEast; // Change direction for the next row
+                    waypoints.Add(CreateWaypoint(coordinate.Lat, coordinate.Lng, altitude, 0, 0, speed, ref id, allPointsAction));
                 }
+                return waypoints;
             }
-            id = 1;
-            // Ensure correct waypoint numbering
-            for (int i = 0; i < waypoints.Count; i++)
+
+            // Create waypoints along each segment based on distance
+            for (int i = 0; i < coordinates.Count - 1; i++)
             {
-                waypoints[i].Id = id++;
+                var start = coordinates[i];
+                var end = coordinates[i + 1];
+                
+                // Calculate heading
+                double heading = Math.Atan2(end.Lng - start.Lng, end.Lat - start.Lat) * 180.0 / Math.PI;
+                if (heading < 0) heading += 360.0;
+                
+                // Calculate segment distance in meters
+                double segmentDistance = CalculateDistance(start.Lat, start.Lng, end.Lat, end.Lng);
+                
+                // Calculate number of points to add
+                int numPoints = Math.Max(2, (int)(segmentDistance / (speed * photoInterval)));
+                
+                // Add waypoints along the segment
+                for (int j = 0; j < numPoints; j++)
+                {
+                    double t = j / (double)(numPoints - 1);
+                    double lat = start.Lat + t * (end.Lat - start.Lat);
+                    double lng = start.Lng + t * (end.Lng - start.Lng);
+                    
+                    waypoints.Add(CreateWaypoint(lat, lng, altitude, heading, 0, speed, ref id, allPointsAction));
+                }
             }
 
             return waypoints;
         }
 
-
+        // Helper method to calculate distance between coordinates
+        private double CalculateDistance(double lat1, double lng1, double lat2, double lng2)
+        {
+            double earthRadius = 6371000; // meters
+            double dLat = (lat2 - lat1) * Math.PI / 180.0;
+            double dLng = (lng2 - lng1) * Math.PI / 180.0;
+            double a = Math.Sin(dLat / 2) * Math.Sin(dLat / 2) +
+                       Math.Cos(lat1 * Math.PI / 180.0) * Math.Cos(lat2 * Math.PI / 180.0) *
+                       Math.Sin(dLng / 2) * Math.Sin(dLng / 2);
+            double c = 2 * Math.Atan2(Math.Sqrt(a), Math.Sqrt(1 - a));
+            return earthRadius * c;
+        }
 
         public Waypoint CreateWaypoint(double lat, double lng, double altitude, double heading, int angle, double speed, ref int id, string action)
         {
             return new Waypoint
             {
-                Latitude = lat,
-                Longitude = lng,
-                Altitude = altitude,
-                Heading = heading,
-                Yaw = heading,
-                GimbalAngle = angle,
+                Lat = lat,
+                Lng = lng,
+                Alt = altitude,
                 Speed = speed,
-                Id = id++,
+                Index = id++,
                 Action = action
             };
         }
@@ -231,10 +205,6 @@ namespace KarttaBackEnd2.Server.Services
             return inside;
         }
 
-       
-  
-
-
         private int Orientation(Coordinate p, Coordinate q, Coordinate r)
         {
             double val = (q.Lng - p.Lng) * (r.Lat - q.Lat) - (q.Lat - p.Lat) * (r.Lng - q.Lng);
@@ -248,24 +218,17 @@ namespace KarttaBackEnd2.Server.Services
                    q.Lat <= Math.Max(p.Lat, r.Lat) && q.Lat >= Math.Min(p.Lat, r.Lat);
         }
 
-     
-
-
-
-       
-
-    
         // Suorakulmion tai polygonin reittipisteiden generointilogiikka
         private List<Waypoint> GenerateWaypointsForRectangleOrPolygon(
-      List<Coordinate> coordinates,
-      double altitude,
-      double speed,
-      int angle,
-      double in_distance,
-      bool useEndpointsOnly,
-      bool isNorthSouth,
-      ref int id,
-      string allPointsAction)
+            List<Coordinate> coordinates,
+            double altitude,
+            double speed,
+            int angle,
+            double in_distance,
+            bool useEndpointsOnly,
+            bool isNorthSouth,
+            ref int id,
+            string allPointsAction)
         {
             var waypoints = new List<Waypoint>();
 
@@ -284,26 +247,22 @@ namespace KarttaBackEnd2.Server.Services
                     // Ensimmäinen reittipiste
                     waypoints.Add(new Waypoint
                     {
-                        Latitude = minLat,
-                        Longitude = lng,
-                        Altitude = altitude,
-                        Heading = 0,  // Pohjoinen
-                        GimbalAngle = angle,
+                        Lat = minLat,
+                        Lng = lng,
+                        Alt = altitude,
                         Speed = speed,
-                        Id = id++,
+                        Index = id++,
                         Action = allPointsAction
                     });
 
                     // Toinen reittipiste
                     waypoints.Add(new Waypoint
                     {
-                        Latitude = maxLat,
-                        Longitude = lng,
-                        Altitude = altitude,
-                        Heading = 180,  // Etelä
-                        GimbalAngle = angle,
+                        Lat = maxLat,
+                        Lng = lng,
+                        Alt = altitude,
                         Speed = speed,
-                        Id = id++,
+                        Index = id++,
                         Action = allPointsAction
                     });
 
@@ -315,25 +274,21 @@ namespace KarttaBackEnd2.Server.Services
                         {
                             waypoints.Add(new Waypoint
                             {
-                                Latitude = maxLat,
-                                Longitude = lng,
-                                Altitude = altitude,
-                                Heading = 180,  // Etelä
-                                GimbalAngle = angle,
+                                Lat = maxLat,
+                                Lng = lng,
+                                Alt = altitude,
                                 Speed = speed,
-                                Id = id++,
+                                Index = id++,
                                 Action = allPointsAction
                             });
 
                             waypoints.Add(new Waypoint
                             {
-                                Latitude = minLat,
-                                Longitude = lng,
-                                Altitude = altitude,
-                                Heading = 0,  // Pohjoinen
-                                GimbalAngle = angle,
+                                Lat = minLat,
+                                Lng = lng,
+                                Alt = altitude,
                                 Speed = speed,
-                                Id = id++,
+                                Index = id++,
                                 Action = allPointsAction
                             });
                         }
@@ -349,26 +304,22 @@ namespace KarttaBackEnd2.Server.Services
                     // Ensimmäinen reittipiste
                     waypoints.Add(new Waypoint
                     {
-                        Latitude = lat,
-                        Longitude = minLng,
-                        Altitude = altitude,
-                        Heading = 90,  // Itä
-                        GimbalAngle = angle,
+                        Lat = lat,
+                        Lng = minLng,
+                        Alt = altitude,
                         Speed = speed,
-                        Id = id++,
+                        Index = id++,
                         Action = allPointsAction
                     });
 
                     // Toinen reittipiste
                     waypoints.Add(new Waypoint
                     {
-                        Latitude = lat,
-                        Longitude = maxLng,
-                        Altitude = altitude,
-                        Heading = 270,  // Länsi
-                        GimbalAngle = angle,
+                        Lat = lat,
+                        Lng = maxLng,
+                        Alt = altitude,
                         Speed = speed,
-                        Id = id++,
+                        Index = id++,
                         Action = allPointsAction
                     });
 
@@ -380,25 +331,21 @@ namespace KarttaBackEnd2.Server.Services
                         {
                             waypoints.Add(new Waypoint
                             {
-                                Latitude = lat,
-                                Longitude = maxLng,
-                                Altitude = altitude,
-                                Heading = 270,  // Länsi
-                                GimbalAngle = angle,
+                                Lat = lat,
+                                Lng = maxLng,
+                                Alt = altitude,
                                 Speed = speed,
-                                Id = id++,
+                                Index = id++,
                                 Action = allPointsAction
                             });
 
                             waypoints.Add(new Waypoint
                             {
-                                Latitude = lat,
-                                Longitude = minLng,
-                                Altitude = altitude,
-                                Heading = 90,  // Itä
-                                GimbalAngle = angle,
+                                Lat = lat,
+                                Lng = minLng,
+                                Alt = altitude,
                                 Speed = speed,
-                                Id = id++,
+                                Index = id++,
                                 Action = allPointsAction
                             });
                         }
@@ -408,7 +355,6 @@ namespace KarttaBackEnd2.Server.Services
 
             return waypoints;
         }
-
 
         // Ympyrän reittipisteiden generointilogiikka
         public async Task<List<Waypoint>> GenerateWaypointsForCircleAsync(
@@ -444,21 +390,14 @@ namespace KarttaBackEnd2.Server.Services
 
                 if (distanceCovered >= distancePerPhoto)
                 {
-                    // Laske suunta ellipsin keskipisteeseen
-                    double deltaLat = centerLat - waypointLat;
-                    double deltaLon = centerLon - waypointLon;
-                    double heading = Math.Atan2(deltaLon, deltaLat) * (180.0 / Math.PI);  // Muunna radiaaneista asteiksi
-
                     // Luo ja lisää reittipiste
                     waypoints.Add(new Waypoint
                     {
-                        Latitude = waypointLat,
-                        Longitude = waypointLon,
-                        Altitude = altitude,
-                        Heading = heading,  // Suunta kohti ellipsin keskipistettä
-                        GimbalAngle = angle,
+                        Lat = waypointLat,
+                        Lng = waypointLon,
+                        Alt = altitude,
                         Speed = speed,
-                        Id = id++,  // Lisää yksilöivä Id jokaiselle reittipisteelle
+                        Index = id++,
                         Action = allPointsAction
                     });
 

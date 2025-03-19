@@ -2,6 +2,8 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using KarttaBackEnd2.Server.Models;
 using KarttaBackEnd2.Server.Services;
+using Microsoft.Extensions.Logging;
+using Moq;
 using Xunit;
 
 namespace KarttaBackendTest
@@ -9,10 +11,12 @@ namespace KarttaBackendTest
     public class WaypointServiceTests
     {
         private readonly WaypointService _waypointService;
+        private readonly Mock<ILogger<WaypointService>> _mockLogger;
 
         public WaypointServiceTests()
         {
-            _waypointService = new WaypointService();
+            _mockLogger = new Mock<ILogger<WaypointService>>();
+            _waypointService = new WaypointService(_mockLogger.Object);
         }
 
         [Fact]
@@ -35,7 +39,7 @@ namespace KarttaBackendTest
                 0,
                 100,
                 10,
-                45,
+                0,
                 100,
                 bounds,
                 boundsType,
@@ -66,7 +70,7 @@ namespace KarttaBackendTest
                 0,
                 100,
                 10,
-                45,
+                0,
                 100,
                 bounds,
                 boundsType,
@@ -131,11 +135,9 @@ namespace KarttaBackendTest
 
             // Assert
             Assert.NotNull(waypoint);
-            Assert.Equal(lat, waypoint.Latitude);
-            Assert.Equal(lng, waypoint.Longitude);
-            Assert.Equal(altitude, waypoint.Altitude);
-            Assert.Equal(heading, waypoint.Heading);
-            Assert.Equal(angle, waypoint.GimbalAngle);
+            Assert.Equal(lat, waypoint.Lat);
+            Assert.Equal(lng, waypoint.Lng);
+            Assert.Equal(altitude, waypoint.Alt);
             Assert.Equal(speed, waypoint.Speed);
             Assert.Equal(action, waypoint.Action);
         }

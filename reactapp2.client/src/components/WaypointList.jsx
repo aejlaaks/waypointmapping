@@ -1,107 +1,135 @@
-import React, { useState } from 'react';
-import { updateWaypoint, deleteWaypoint } from '../services/api';
+import React from 'react';
+import PropTypes from 'prop-types';
+import { WaypointActions } from './WaypointInfoBox';
 
-const WaypointList = ({ waypoints, setWaypoints, setFlightPath }) => {
-    const handleUpdate = async (id, updatedWaypoint) => {
-        try {
-            await updateWaypoint(id, updatedWaypoint);
-            const updatedWaypoints = waypoints.map(wp => wp.id === id ? { ...wp, ...updatedWaypoint } : wp);
-            setWaypoints(updatedWaypoints);
-            const path = updatedWaypoints.map(wp => ({ lat: wp.latitude, lng: wp.longitude }));
-            setFlightPath(path);
-        } catch (error) {
-            console.error('Error updating waypoint:', error);
-        }
-    };
+// Convert action code to human-readable name
+const getActionName = (actionCode) => {
+  const actionMap = {
+    [WaypointActions.NO_ACTION]: 'No Action',
+    [WaypointActions.TAKE_PHOTO]: 'Take Photo',
+    [WaypointActions.START_RECORD]: 'Start Recording',
+    [WaypointActions.STOP_RECORD]: 'Stop Recording'
+  };
+  
+  return actionMap[actionCode] || actionCode;
+};
 
-    const handleDelete = async (id) => {
-        try {
-            await deleteWaypoint(id);
-            const filteredWaypoints = waypoints.filter(wp => wp.id !== id);
-            setWaypoints(filteredWaypoints);
-            const path = filteredWaypoints.map(wp => ({ lat: wp.latitude, lng: wp.longitude }));
-            setFlightPath(path);
-        } catch (error) {
-            console.error('Error deleting waypoint:', error);
-        }
-    };
+const WaypointList = ({ waypoints, onUpdate, onDelete }) => {
+  // Handle field updates
+  const handleFieldChange = (id, field, value) => {
+    onUpdate(id, { [field]: field === 'action' ? value : parseFloat(value) });
+  };
 
-    return (
-        <div className="mt-4">
-            <h3>Waypoints</h3>
-            <table className="table table-striped">
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Latitude</th>
-                        <th>Longitude</th>
-                        <th>Altitude</th>
-                        <th>Speed</th>
-                        <th>Heading</th>
-                        <th>Gimbal Angle</th>
-                        <th>Action</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {waypoints.map(wp => (
-                        <tr key={wp.id}>
-                            <td>{wp.id}</td>
-                            <td>{wp.latitude}</td>
-                            <td>{wp.longitude}</td>
-                            <td>
-                                <input
-                                    type="number"
-                                    value={wp.altitude}
-                                    onChange={(e) => handleUpdate(wp.id, { altitude: parseFloat(e.target.value) })}
-                                    className="form-control"
-                                />
-                            </td>
-                            <td>
-                                <input
-                                    type="number"
-                                    value={wp.speed}
-                                    onChange={(e) => handleUpdate(wp.id, { speed: parseFloat(e.target.value) })}
-                                    className="form-control"
-                                />
-                            </td>
-                            <td>
-                                <input
-                                    type="number"
-                                    value={wp.heading}
-                                    onChange={(e) => handleUpdate(wp.id, { heading: parseFloat(e.target.value) })}
-                                    className="form-control"
-                                />
-                            </td>
-                            <td>
-                                <input
-                                    type="number"
-                                    value={wp.gimbalAngle}
-                                    onChange={(e) => handleUpdate(wp.id, { gimbalAngle: parseFloat(e.target.value) })}
-                                    className="form-control"
-                                />
-                            </td>
-                            <td>
-                                <select
-                                    value={wp.action}
-                                    onChange={(e) => handleUpdate(wp.id, { action: e.target.value })}
-                                    className="form-select"
-                                >
-                                    <option value="noAction">No Action</option>
-                                    <option value="takePhoto">Take Picture</option>
-                                    <option value="startRecord">Start Recording</option>
-                                    <option value="stopRecord">Stop Recording</option>
-                                </select>
-                            </td>
-                            <td>
-                                <button className="btn btn-danger btn-sm" onClick={() => handleDelete(wp.id)}>Delete</button>
-                            </td>
-                        </tr>
-                    ))}
-                </tbody>
-            </table>
+  // Handle waypoint deletion
+  const handleDelete = (id) => {
+    onDelete(id);
+  };
+
+  return (
+    <div className="waypoints-table mt-4">
+      <h4>Waypoints</h4>
+      {waypoints.length === 0 ? (
+        <p className="text-muted">No waypoints available</p>
+      ) : (
+        <div className="table-responsive">
+          <table className="table table-striped table-hover">
+            <thead className="thead-light">
+              <tr>
+                <th>ID</th>
+                <th>Lat</th>
+                <th>Lng</th>
+                <th>Alt (m)</th>
+                <th>Speed (m/s)</th>
+                <th>Heading</th>
+                <th>G. Angle</th>
+                <th>Action</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {waypoints.map(wp => (
+                <tr key={wp.id}>
+                  <td>{wp.id}</td>
+                  <td>{wp.lat.toFixed(6)}</td>
+                  <td>{wp.lng.toFixed(6)}</td>
+                  <td>
+                    <input
+                      type="number"
+                      className="form-control form-control-sm"
+                      value={wp.altitude}
+                      onChange={(e) => handleFieldChange(wp.id, 'altitude', e.target.value)}
+                    />
+                  </td>
+                  <td>
+                    <input
+                      type="number"
+                      className="form-control form-control-sm"
+                      value={wp.speed}
+                      onChange={(e) => handleFieldChange(wp.id, 'speed', e.target.value)}
+                    />
+                  </td>
+                  <td>
+                    <input
+                      type="number"
+                      className="form-control form-control-sm"
+                      value={wp.heading}
+                      onChange={(e) => handleFieldChange(wp.id, 'heading', e.target.value)}
+                    />
+                  </td>
+                  <td>
+                    <input
+                      type="number"
+                      className="form-control form-control-sm"
+                      value={wp.angle}
+                      onChange={(e) => handleFieldChange(wp.id, 'angle', e.target.value)}
+                    />
+                  </td>
+                  <td>
+                    <select
+                      value={wp.action}
+                      className="form-select form-select-sm"
+                      onChange={(e) => handleFieldChange(wp.id, 'action', e.target.value)}
+                    >
+                      <option value={WaypointActions.NO_ACTION}>No Action</option>
+                      <option value={WaypointActions.TAKE_PHOTO}>Take Photo</option>
+                      <option value={WaypointActions.START_RECORD}>Start Recording</option>
+                      <option value={WaypointActions.STOP_RECORD}>Stop Recording</option>
+                    </select>
+                  </td>
+                  <td>
+                    <button 
+                      className="btn btn-danger btn-sm"
+                      onClick={() => handleDelete(wp.id)}
+                    >
+                      Delete
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
-    );
+      )}
+    </div>
+  );
+};
+
+// Add PropTypes for better type checking
+WaypointList.propTypes = {
+  waypoints: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+      lat: PropTypes.number.isRequired,
+      lng: PropTypes.number.isRequired,
+      altitude: PropTypes.number.isRequired,
+      speed: PropTypes.number.isRequired,
+      angle: PropTypes.number.isRequired,
+      heading: PropTypes.number.isRequired,
+      action: PropTypes.string.isRequired
+    })
+  ).isRequired,
+  onUpdate: PropTypes.func.isRequired,
+  onDelete: PropTypes.func.isRequired
 };
 
 export default WaypointList;

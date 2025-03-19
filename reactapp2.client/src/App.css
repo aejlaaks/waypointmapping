@@ -210,3 +210,117 @@ body,
 .clear-shapes-button {
     background-color: #17a2b8; /* Teal */
 }
+
+/* Waypoint styling */
+.vertex-waypoint {
+    /* Styling for waypoints at polyline vertices */
+    border: 3px solid #FF4500;
+    background-color: rgba(255, 69, 0, 0.7);
+    border-radius: 50%;
+}
+
+.interpolated-waypoint {
+    /* Styling for interpolated waypoints */
+    border: 2px solid #3CB371;
+    background-color: rgba(60, 179, 113, 0.7);
+    border-radius: 50%;
+}
+
+.waypoint-heading-indicator {
+    display: inline-block;
+    font-size: 24px;
+    margin-right: 10px;
+    color: #007bff;
+    transition: transform 0.3s ease;
+}
+
+/* Toast notifications */
+.toast-notification {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    padding: 15px 25px;
+    border-radius: 4px;
+    z-index: 9999;
+    color: white;
+    font-weight: 500;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    animation: fadeIn 0.3s, fadeOut 0.3s 2.7s;
+    max-width: 350px;
+}
+
+.toast-notification.success {
+    background-color: #28a745;
+}
+
+.toast-notification.error {
+    background-color: #dc3545;
+}
+
+.toast-notification.info {
+    background-color: #17a2b8;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeOut {
+    from { opacity: 1; transform: translateY(0); }
+    to { opacity: 0; transform: translateY(-20px); }
+}
+
+/* Theme support */
+:root {
+    --primary-bg: #222;
+    --secondary-bg: #333;
+    --primary-text: #fff;
+    --secondary-text: #eee;
+    --border-color: #444;
+    --highlight-color: #007bff;
+}
+
+[data-theme="light"] {
+    --primary-bg: #fff;
+    --secondary-bg: #f8f9fa;
+    --primary-text: #212529;
+    --secondary-text: #495057;
+    --border-color: #dee2e6;
+    --highlight-color: #007bff;
+}
+
+body {
+    background-color: var(--primary-bg);
+    color: var(--primary-text);
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Mobile responsiveness enhancement */
+@media (max-width: 768px) {
+    .map-container {
+        height: 50vh;
+        width: 100%;
+    }
+    
+    .input-container {
+        width: 100%;
+    }
+    
+    .flex-container {
+        flex-direction: column;
+    }
+
+    .waypoints-table {
+        overflow-x: auto;
+    }
+
+    .map-controls {
+        padding: 15px 10px;
+    }
+
+    #root {
+        padding: 1rem;
+        max-width: 100%;
+    }
+}
