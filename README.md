@@ -121,13 +121,13 @@ The waypoint generation algorithm is optimized for:
 
 2. Install client dependencies:
    ```
-   cd ReactApp2.Client
+   cd MappingFrontend.Client
    npm install
    ```
 
 3. Install server dependencies:
    ```
-   cd ../ReactApp2.Server
+   cd ../MappingBackend.Server
    dotnet restore
    ```
 
@@ -135,13 +135,13 @@ The waypoint generation algorithm is optimized for:
 
 1. Start the backend server:
    ```
-   cd ReactApp2.Server
+   cd MappingBackend.Server
    dotnet run
    ```
 
 2. Start the frontend development server:
    ```
-   cd ReactApp2.Client
+   cd MappingFrontend.Client
    npm run dev
    ```
 
@@ -184,8 +184,8 @@ The waypoint generation algorithm is optimized for:
 
 The DroneKartta solution consists of the following projects:
 
-- **ReactApp2.Client**: Frontend React application with TypeScript
-- **ReactApp2.Server**: Backend .NET API with domain logic
+- **MappingFrontend.Client**: Frontend React application with TypeScript
+- **MappingBackend.Server**: Backend .NET API with domain logic
 - **KarttaBackendTest**: Test project for backend services
 
 The backend codebase uses the namespace `KarttaBackEnd2.Server` for consistency with legacy code.
@@ -200,7 +200,7 @@ cd KarttaBackendTest
 dotnet test
 
 # Run frontend tests
-cd ReactApp2.Client
+cd MappingFrontend.Client
 npm test
 ```
 
