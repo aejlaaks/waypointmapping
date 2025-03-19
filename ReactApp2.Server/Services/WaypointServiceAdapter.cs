@@ -67,7 +67,7 @@ namespace KarttaBackEnd2.Server.Services
                     Speed = speed,
                     LineSpacing = in_distance,
                     StartingIndex = startingIndex,
-                    PhotoInterval = (int)photoInterval,
+                    PhotoInterval = photoInterval,
                     UseEndpointsOnly = useEndpointsOnly,
                     IsNorthSouth = isNorthSouth
                 };
@@ -127,7 +127,20 @@ namespace KarttaBackEnd2.Server.Services
                 }
                 
                 // Call the new implementation
-                return await _newWaypointService.GenerateWaypointsAsync(shapes, parameters);
+                var result = await _newWaypointService.GenerateWaypointsAsync(shapes, parameters);
+                
+                if (result == null || result.Count == 0)
+                {
+                    _logger.LogWarning("New implementation returned no waypoints for bounds type: {BoundsType}", boundsType);
+                    // Try legacy implementation as fallback
+                    _logger.LogInformation("Falling back to legacy implementation for empty results");
+                    return await _legacyWaypointService.GenerateWaypointsAsync(
+                        action, unitType_in, altitude, speed, angle, in_distance,
+                        bounds, boundsType, startingIndex, photoInterval,
+                        useEndpointsOnly, isNorthSouth);
+                }
+                
+                return result;
             }
             catch (Exception ex)
             {
@@ -148,7 +161,40 @@ namespace KarttaBackEnd2.Server.Services
         {
             try
             {
-                return await _newWaypointService.GenerateWaypointsAsync(shapes, parameters);
+                var result = await _newWaypointService.GenerateWaypointsAsync(shapes, parameters);
+                
+                if (result == null || result.Count == 0)
+                {
+                    _logger.LogWarning("New implementation returned no waypoints when called directly");
+                    
+                    if (shapes == null || shapes.Count == 0 || shapes[0].Coordinates == null)
+                    {
+                        _logger.LogError("Cannot fall back to legacy implementation: invalid shapes data");
+                        return new List<Waypoint>(); // Return empty list rather than null
+                    }
+                    
+                    // Get the first shape - legacy only supports one shape
+                    var shape = shapes[0];
+                    
+                    _logger.LogInformation("Falling back to legacy implementation for empty results");
+                    // Try legacy implementation as fallback
+                    return await _legacyWaypointService.GenerateWaypointsAsync(
+                        parameters.Action,
+                        parameters.UnitType,
+                        parameters.Altitude,
+                        parameters.Speed,
+                        0, // Angle is not used
+                        parameters.LineSpacing,
+                        shape.Coordinates,
+                        shape.Type,
+                        parameters.StartingIndex,
+                        parameters.PhotoInterval,
+                        parameters.UseEndpointsOnly,
+                        parameters.IsNorthSouth
+                    );
+                }
+                
+                return result;
             }
             catch (Exception ex)
             {

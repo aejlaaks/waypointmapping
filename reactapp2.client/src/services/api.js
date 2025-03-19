@@ -12,7 +12,7 @@ const api = axios.create({
 // API-kutsu waypointtien generointiin
 export const generateWaypoints = async (request) => {
   try {
-    const response = await api.post('/waypoints/generatePoints', request); 
+    const response = await api.post('/waypoints/generate', request); 
     return response.data; // Palauttaa listan generoituja waypointteja
   }
   catch (error) {

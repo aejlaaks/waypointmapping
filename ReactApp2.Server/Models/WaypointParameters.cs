@@ -16,6 +16,11 @@ namespace KarttaBackEnd2.Server.Models
         public double Speed { get; set; }
         
         /// <summary>
+        /// The gimbal angle in degrees
+        /// </summary>
+        public double Angle { get; set; }
+        
+        /// <summary>
         /// The distance between waypoint lines in meters
         /// </summary>
         public double LineSpacing { get; set; }
@@ -31,10 +36,9 @@ namespace KarttaBackEnd2.Server.Models
         public string Action { get; set; }
         
         /// <summary>
-        /// Interval between photos (waypoint indices to add photo action)
-        /// If set to 3, every 3rd waypoint will have the photo action
+        /// Interval between photos (in seconds)
         /// </summary>
-        public int PhotoInterval { get; set; }
+        public double PhotoInterval { get; set; }
         
         /// <summary>
         /// Whether to use only endpoints when generating waypoints
@@ -52,5 +56,31 @@ namespace KarttaBackEnd2.Server.Models
         /// 0 = Metric, 1 = Imperial
         /// </summary>
         public int UnitType { get; set; }
+        
+        /// <summary>
+        /// Camera focal length in millimeters
+        /// </summary>
+        public double FocalLength { get; set; }
+        
+        /// <summary>
+        /// Camera sensor width in millimeters
+        /// </summary>
+        public double SensorWidth { get; set; }
+        
+        /// <summary>
+        /// Camera sensor height in millimeters
+        /// </summary>
+        public double SensorHeight { get; set; }
+        
+        /// <summary>
+        /// Overlap percentage between consecutive photos (0-100)
+        /// </summary>
+        public double Overlap { get; set; }
+        
+        /// <summary>
+        /// Flag indicating whether the speed was manually set by the user
+        /// If false, speed can be calculated from photo interval
+        /// </summary>
+        public bool ManualSpeedSet { get; set; }
     }
 } 

@@ -18,22 +18,53 @@ export const calculateSpeed = (altitude, overlap, focalLength, sensorHeight, pho
 
 export const validateAndCorrectCoordinates = (coordinatesString) => {
     try {
+        if (!coordinatesString || typeof coordinatesString !== 'string') {
+            console.error("Invalid coordinates string:", coordinatesString);
+            return null;
+        }
+        
         // Split the string by semicolon to get individual coordinate pairs
         const coordinatePairs = coordinatesString.split(';');
+        
+        if (coordinatePairs.length < 2) {
+            console.error("Not enough coordinate pairs:", coordinatesString);
+            return null;
+        }
 
-        // Map each pair to an object with lat and lng properties
+        // Map each pair to an object with Lat and Lng properties for the API
         const coordinatesArray = coordinatePairs.map(pair => {
-            const [lat, lng] = pair.split(',').map(Number);
-            if (isNaN(lat) || isNaN(lng)) {
-                throw new Error("Invalid coordinate values");
+            // Clean up extra spaces
+            const trimmedPair = pair.trim();
+            
+            // Split by comma
+            const [lat, lng] = trimmedPair.split(',').map(val => {
+                // Clean and parse as number
+                const cleaned = val.trim();
+                const parsed = parseFloat(cleaned);
+                if (isNaN(parsed)) {
+                    throw new Error(`Invalid coordinate value: ${cleaned}`);
+                }
+                return parsed;
+            });
+            
+            // Validate latitude and longitude ranges
+            if (lat < -90 || lat > 90) {
+                throw new Error(`Latitude out of range: ${lat}`);
             }
-            return { lat, lng };
+            
+            if (lng < -180 || lng > 180) {
+                throw new Error(`Longitude out of range: ${lng}`);
+            }
+            
+            // Return in the format expected by the API
+            return { Lat: lat, Lng: lng };
         });
-
+        
+        console.log("Validated coordinates:", coordinatesArray);
         return coordinatesArray;
     } catch (error) {
         console.error("Error parsing coordinates string:", error);
-        return null;
+        throw error; // Re-throw to handle in calling code
     }
 };
 

@@ -14,6 +14,30 @@ DroneKartta is a web-based application for planning and visualizing drone flight
 
 ## Recent Updates
 
+### Map Control Debugging Improvements
+
+The application now includes enhanced debugging and improved map control functionality with the following updates:
+
+1. **Drawing Manager Initialization**:
+   - Fixed initialization sequence for the Google Maps Drawing Manager
+   - Implemented proper reference tracking for drawing tools
+   - Added logging for map and drawing manager loading events
+
+2. **Button Event Handlers**:
+   - Implemented callback-based button handlers with proper dependency tracking
+   - Added debugging logs for all control actions
+   - Improved error handling for drawing operations
+
+3. **Code Structure Improvements**:
+   - Separated concerns for drawing operations and waypoint generation
+   - Implemented proper state management for map objects
+   - Enhanced visualization of drawing tools state
+
+4. **Developer Tools**:
+   - Added extensive console logging for debugging drawing operations
+   - Improved error reporting for map operations
+   - Added state tracking for drawing manager references
+
 ### Enhanced Polyline Waypoint Visualization
 
 The application now includes improved support for polyline-based flight paths with the following enhancements:

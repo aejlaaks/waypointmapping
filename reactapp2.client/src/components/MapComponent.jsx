@@ -1,330 +1,134 @@
 // MapComponent.jsx
 import React, { useCallback, useRef, useState, useEffect } from 'react';
-import { GoogleMap, useJsApiLoader, DrawingManager, InfoWindow, Marker, Polyline } from '@react-google-maps/api';
-import WaypointInfoBox from './WaypointInfoBox';
-import axios from 'axios'; // Import axios for making API calls
-import "../App.css";
-import {
-    calculateDistanceBetweenPaths,
-    calculateSpeed,
-    validateAndCorrectCoordinates,
-    measure,
-    GenerateWaypointInfoboxText,
-    GenerateShapeInfoboxText
-} from '../services/JSFunctions'; // Tuodaan erillisest‰ tiedostosta
+import { GoogleMap, useJsApiLoader, DrawingManager, Polyline } from '@react-google-maps/api';
+import { validateAndCorrectCoordinates } from '../services/JSFunctions';
+import FlightParametersPanel from './FlightParametersPanel';
+import MapToolbar from './MapToolbar';
+import { useFlightParameters } from '../hooks/useFlightParameters';
+import { useDrawingManager } from '../hooks/useDrawingManager';
+import { useWaypointAPI } from '../hooks/useWaypointAPI';
+import { MapProvider, useMapContext } from '../context/MapContext';
 
-// Valitse API-URL ymp‰ristˆn perusteella
-const apiBaseUrl = process.env.NODE_ENV === 'production'
-    ? process.env.REACT_APP_API_BASE_URL // Tuotantoymp‰ristˆss‰ k‰ytet‰‰n React-skriptin ymp‰ristˆmuuttujaa
-    : import.meta.env.VITE_API_BASE_URL; // Kehitysymp‰ristˆss‰ k‰ytet‰‰n Viten ymp‰ristˆmuuttujaa
+// Map configuration as static constants to prevent unnecessary reloads
+// IMPORTANT: This must be defined outside the component to avoid recreation
+const LIBRARIES = ['drawing', 'places'];
+const MAP_CONTAINER_STYLE = { width: '100%', height: '100%' };
+const DEFAULT_CENTER = { lat: 60.1699, lng: 24.9384 }; // Helsinki
+const DEFAULT_ZOOM = 10;
 
-const libraries = ['drawing', 'places'];
-
-
-
-const center = {
-    lat: 60.1699, // Example center location (Helsinki)
-    lng: 24.9384,
+// DrawingManager options - defined as static object to prevent recreations
+const DRAWING_MANAGER_OPTIONS = {
+  drawingControl: false,
+  drawingMode: null,
+  rectangleOptions: {
+    fillColor: '#2196F3',
+    fillOpacity: 0.5,
+    strokeWeight: 2,
+    clickable: true,
+    editable: true,
+    zIndex: 1,
+  },
+  circleOptions: {
+    fillColor: '#FF9800',
+    fillOpacity: 0.5,
+    strokeWeight: 2,
+    clickable: true,
+    editable: true,
+    zIndex: 1,
+  },
+  polylineOptions: {
+    strokeColor: '#FF0000',
+    strokeWeight: 2,
+    clickable: true,
+    editable: true,
+    zIndex: 1,
+  },
 };
 
-
-
-function MapComponent() {
-    const { isLoaded } = useJsApiLoader({
-        googleMapsApiKey: 'AIzaSyCbrrhYSaiyels_EyP05HalRiWcev73g0E', // Replace with your API key
-        libraries,
-    });
-    const [path, setPath] = useState([]);
-
-    const [shapes, setShapes] = useState([]);
-    const [searchLocation, setSearchLocation] = useState('');
-    const [unitType, setUnitType] = useState('0');
-    const [altitude, setAltitude] = useState(60);
-    const [speed, setSpeed] = useState(2.5);
-    const [angle, setAngle] = useState(-45);
-    const [focalLength, setFocalLength] = useState(24); // Camera focal length in mm
-    const [sensorWidth, setSensorWidth] = useState(9.6); // Camera sensor width in mm
-    const [sensorHeight, setSensorHeight] = useState(7.2); // Camera sensor height in mm
-    const [photoInterval, setPhotoInterval] = useState(2); // Photo interval in seconds
-    const [overlap, setOverlap] = useState(83);
-    const [useEndpointsOnly, setUseEndpointsOnly] = useState(true);  // Add this state to control the switch
-    const [isNorthSouth, setisNorthSouth] = useState(true);  // Add this state to control the switch
-
-    const [bounds, setBounds] = useState('');
-    const [boundsType, setBoundsType] = useState(["rectangle"]);
+/**
+ * Inner component that contains the map functionality
+ */
+const MapComponentInner = () => {
+  // Custom hooks
+  const flightParams = useFlightParameters();
+  const { 
+    mapRef, 
+    drawingManagerRef, 
+    genInfoWindowRef,
+    path, 
+    setPath,
+    bounds,
+    boundsType,
+    selectedShape,
+    clearAll
+  } = useMapContext();
+  
+  // Initialize the custom hooks
+  const { onDrawingManagerLoad, onDrawingComplete, enableDrawingMode, stopDrawing, parseShapeBounds } = useDrawingManager();
+  const { generateWaypointsFromAPI, generateKml } = useWaypointAPI();
+  
+  // State
     const [startingIndex, setStartingIndex] = useState(1);
-    const [allPointsAction, setAllPointsAction] = useState('noAction');
-    const [finalAction, setFinalAction] = useState('0');
-    const [flipPath, setFlipPath] = useState(false);
-    const [interval, setInterval] = useState(3);
-    const [inDistance, setInDistance] = useState(10, 0); // New state variable for in_distance
-    const [selectedShape, setSelectedShape] = useState(null);
-    const [selectedMarker, setSelectedMarker] = useState(null);
-    const [infoWindowPosition, setInfoWindowPosition] = useState(null);
-    const [infoWindowVisible, setInfoWindowVisible] = useState(false);
-    const [selectedWaypoint, setSelectedWaypoint] = useState(null);
-    // Integroi waypointit ja selectedShape tiloina
-    const [waypoints, setWaypoints] = useState([]); // vastaa map.flags
-    const drawingManagerRef = useRef(null);
-    const mapRef = useRef(null);
-    const inputRef = useRef(null); // Create a ref for the input element
+  const inputRef = useRef(null);
+  const downloadLinkRef = useRef(null);
+  const [googleLoaded, setGoogleLoaded] = useState(false);
 
-    const genInfoWindow = useRef(null); // Ref for genInfoWindow
-    const downloadLinkRef = useRef(null); // Ref for the download link
-    const [in_allPointsAction, setInAllPointsAction] = useState('takePhoto'); // New state variable for in_allPointsAction
-
-    
-
-    const parseBoundsString = (boundsString) => {
-        // Erota koordinaatit ja s‰de osat
-        const [coordinatesPart, radiusPart] = boundsString.split("; radius:");
-        const [lat, lng] = coordinatesPart.split(",").map(Number);
-        const radius = parseFloat(radiusPart);
-
-        // Tarkistetaan, ett‰ koordinaatit ja s‰de ovat kelvollisia numeroita
-        if (isNaN(lat) || isNaN(lng) || isNaN(radius)) {
-            throw new Error("Invalid bounds string format");
-        }
-
-        // Palautetaan ympyr‰n tiedot listana, jotta ne voidaan suoraan l‰hett‰‰ API:lle
-        return [{ Lat: lat, Lng: lng, Radius: radius }];
-    };
-
-    // Alkuper‰inen mapin asennus ja event handlerit pidet‰‰n
+  // Verify the Google Drawing library is available
     useEffect(() => {
-        // Kartan asennus logiikka
-        // Kun waypointit p‰ivittyv‰t, p‰ivitet‰‰n markerit
-        if (mapRef.current) {
-            mapRef.current.addListener("click", handleMapClick);
-        }
-
-        waypoints.forEach(marker => {
-            google.maps.event.addListener(marker, "click", () => handleWaypointClick(marker));
-            google.maps.event.addListener(marker, "mouseup", () => handleWaypointDragEnd(marker));
-            google.maps.event.addListener(marker, 'dragend', () => handleWaypointDragEnd(marker));
-        });
-
-        //Initialize or clear flags
-        if (mapRef.current) {
-            if (!mapRef.current.flags) {
-                mapRef.current.flags = [];
+    // Check if Google Maps library is loaded and the drawing namespace exists
+    if (window.google && window.google.maps && window.google.maps.drawing) {
+      console.log('Google Maps Drawing library is loaded');
+      setGoogleLoaded(true);
+      
+      // Debug available overlay types
+      console.log('OverlayType:', {
+        RECTANGLE: google.maps.drawing.OverlayType.RECTANGLE,
+        CIRCLE: google.maps.drawing.OverlayType.CIRCLE,
+        POLYLINE: google.maps.drawing.OverlayType.POLYLINE
+      });
             } else {
-                mapRef.current.flags = [];
-            }
-        }
+      console.error('Google Maps Drawing library is not loaded properly');
+      setGoogleLoaded(false);
+    }
+  }, []);
 
-        return () => {
-            if (mapRef.current) {
-                google.maps.event.clearListeners(mapRef.current, "click");
-            }
-
-            waypoints.forEach(marker => {
-                google.maps.event.clearListeners(marker, "click");
-                google.maps.event.clearListeners(marker, "mouseup");
-                google.maps.event.clearListeners(marker, 'dragend');
-            });
-        };
-        RedrawMarkers();
-    }, [waypoints]);
-
-
-
-
-    const stopDrawing = () => {
-        if (drawingManagerRef.current) {
-            drawingManagerRef.current.setDrawingMode(null); // Stop drawing mode
-        }
-    };
-
-    const handleToggleUseEndpointsOnly = () => {
-        setUseEndpointsOnly(prev => !prev);  // Toggle the value
-    };
-    const handleToggleisNorthSouth = () => {
-        setisNorthSouth(prev => !prev);  // Toggle the value
-    };
-
-
+  // Debug console for ref values
     useEffect(() => {
-        const altitudeNum = parseFloat(altitude);
-        const overlapNum = parseFloat(overlap);
-        const focalLengthNum = parseFloat(focalLength);
-        const sensorWidthNum = parseFloat(sensorWidth);
-        const sensorHeightNum = parseFloat(sensorHeight);
-        const intervalNum = parseFloat(interval); // P‰ivitetty muuttujan nimi
+    console.log('Drawing Manager Ref:', drawingManagerRef.current);
+    console.log('Map Ref:', mapRef.current);
+  }, [drawingManagerRef.current, mapRef.current]);
 
-        // Lasketaan vaakasuuntainen ja pystysuuntainen FOV radiaaneina
-        const fovH = 2 * Math.atan(sensorWidthNum / (2 * focalLengthNum));
-        const fovV = 2 * Math.atan(sensorHeightNum / (2 * focalLengthNum));
-
-        // Lasketaan maassa n‰kyv‰t mitat
-        const groundWidth = 2 * altitudeNum * Math.tan(fovH / 2);
-        const groundHeight = 2 * altitudeNum * Math.tan(fovV / 2);
-
-        // Lasketaan in_distance
-        const inDistance = groundWidth * (1 - overlapNum / 100);
-        setInDistance(inDistance.toFixed(1));
-
-        // Lasketaan valokuvien v‰linen et‰isyys
-        const distanceBetweenPhotos = groundHeight * (1 - overlapNum / 100);
-
-        // Lasketaan nopeus
-        const speedCalculated = distanceBetweenPhotos / intervalNum; // P‰ivitetty muuttujan nimi
-        setSpeed(speedCalculated.toFixed(1));
-
-    }, [altitude, overlap, focalLength, sensorWidth, sensorHeight, interval]); // 
-
-    // Function to update the info box listeners
-    const infoBoxUpdateListeners = () => {
-
-        const saveButton = document.getElementById("editWaypointSave");
-        const removeButton = document.getElementById("editWaypointRemove");
-
-        if (saveButton) {
-            saveButton.addEventListener("click", () => {
-                const id = document.getElementById("editWaypointID").value;
-                WaypointEditorSave(id);
-            });
-        }
-
-        if (removeButton) {
-            removeButton.addEventListener("click", () => {
-                const id = document.getElementById("editWaypointID").value;
-                WaypointEditiorRemove(id);
-            });
-        }
-
-        return () => {
-            if (saveButton) {
-                saveButton.removeEventListener("click", () => {
-                    const id = document.getElementById("editWaypointID").value;
-                    WaypointEditorSave(id);
-                });
-            }
-
-            if (removeButton) {
-                removeButton.removeEventListener("click", () => {
-                    const id = document.getElementById("editWaypointID").value;
-                    WaypointEditiorRemove(id);
-                });
-            }
-        }
-        document.getElementById("editWaypointSave").addEventListener("click", () => {
-            const id = document.getElementById("editWaypointID").value;
-            WaypointEditorSave(id);
-        });
-
-        document.getElementById("editWaypointRemove").addEventListener("click", () => {
-            const id = document.getElementById("editWaypointID").value;
-            WaypointEditiorRemove(id);
-        });
-    };
-
-
-
-    // Handle waypoint click event
-    const handleWaypointClick = (marker) => {
-        setSelectedMarker(marker); // P‰ivit‰ valittu reittipiste
-    };
-
-    // Function to handle waypoint drag end
-    const handleWaypointDragEnd = (marker) => {
-        marker.lat = marker.getPosition().lat();
-        marker.lng = marker.getPosition().lng();
-        setWaypoints(prevWaypoints =>
-            prevWaypoints.map(way => (way.id === marker.id ? { ...marker, lat: marker.lat, lng: marker.lng } : way))
-        );
-        redrawFlightPaths();
-    };
-
-    // Function to handle map click
-    const handleMapClick = () => {
-        setSelectedMarker(null); // Tyhjenn‰ valittu reittipiste
-    };
-
-    // Funktio markerin p‰ivitt‰miseen kartalla
-    const updateMarkerIcon = (waypoint) => {
-        const updateMarker = {
-            path: 'M 230 80 A 45 45, 0, 1, 0, 275 125 L 275 80 Z',
-            fillOpacity: 0.8,
-            fillColor: 'blue',
-            anchor: new google.maps.Point(228, 125),
-            strokeWeight: 3,
-            strokeColor: 'white',
-            scale: 0.5,
-            rotation: waypoint.heading - 45,
-            labelOrigin: new google.maps.Point(228, 125),
-        };
-        waypoint.marker.setIcon(updateMarker);
-    };
-
-    // Tallenna ja poista funktiot
-    const handleWaypointSave = (updatedWaypoint) => {
-        setWaypoints(prevWaypoints =>
-            prevWaypoints.map(waypoint =>
-                waypoint.id === updatedWaypoint.id ? updatedWaypoint : waypoint
-            )
-        );
-    };
-
-    const handleWaypointRemove = (id) => {
-        setWaypoints(prevWaypoints => prevWaypoints.filter(waypoint => waypoint.id !== id));
-    };
-
-    // Muodon poistaminen, vastaava ShapeEditiorRemove funktiota
-    const ShapeEditiorRemove = () => {
-        if (selectedShape) {
-            selectedShape.setMap(null); // Poistetaan valittu muoto kartalta
-            setSelectedShape(null);
-        }
-    };
-
-    // Markerien uudelleenpiirto kartalla
-    const RedrawMarkers = () => {
-        waypoints.forEach(waypoint => {
-            waypoint.marker.setLabel(`${waypoint.id}`);
-        });
-    };
-    // Funktio, joka laskee kaarevan pisteen kahden pisteen v‰lille
-    const generateArcPoints = (start, end, curvature) => {
-        const points = [];
-        const numPoints = 30; // Suurempi m‰‰r‰ pisteit‰ tekee kaaresta pehme‰mm‰n
-        const deltaLat = (end.lat - start.lat) / numPoints;
-        const deltaLng = (end.lng - start.lng) / numPoints;
-        for (let i = 0; i <= numPoints; i++) {
-            const lat = start.lat + deltaLat * i;
-            const lng = start.lng + deltaLng * i + Math.sin((i / numPoints) * Math.PI) * curvature;
-            points.push({ lat, lng });
-        }
-        return points;
-    };
-    // K‰sittelee karttaklikkaukset, lis‰t‰‰n koordinaatit polulle (viivalle)
-    const handleMapClickFree = (event) => {
-        // Hanki karttaklikkauksen sijainti (latitude ja longitude)
+  // Handler for map click
+  const handleMapClick = useCallback((event) => {
+    // Add new point to path for free drawing
         const newPoint = {
             lat: event.latLng.lat(),
             lng: event.latLng.lng(),
         };
-
-        // Lis‰‰ uusi piste suoraan path-muuttujaan
         setPath((prevPath) => [...prevPath, newPoint]);
-    };
+  }, [setPath]);
 
+  // Handle map load
     const onLoad = useCallback((map) => {
+    console.log('Map loaded:', map);
         mapRef.current = map;
+    
+    // Initialize the search box
         const searchBox = new window.google.maps.places.SearchBox(inputRef.current);
 
-        const input = document.getElementById('pac-input');
+    // Initialize map properties
         mapRef.current.flags = []; // Initialize flags as an empty array
         mapRef.current.lines = []; // Initialize lines as an empty array
-        genInfoWindow.current = new google.maps.InfoWindow({
+    genInfoWindowRef.current = new google.maps.InfoWindow({
             content: "message",
         });
 
-        // Bias the SearchBox results towards current map's viewport.
+    // Bias the SearchBox results towards current map's viewport
         map.addListener('bounds_changed', () => {
             searchBox.setBounds(map.getBounds());
         });
 
+    // Listen for search box changes
         searchBox.addListener('places_changed', () => {
             const places = searchBox.getPlaces();
             if (places.length === 0) return;
@@ -336,630 +140,349 @@ function MapComponent() {
                 map.setZoom(15);
             }
         });
-    }, []);;
+  }, [mapRef, genInfoWindowRef]);
 
-    const onDrawingComplete = (shape, type) => {
-        setShapes((prevShapes) => [...prevShapes, shape]);
-        setSelectedShape(shape); // Set the selected shape
+  // Handle drawing manager load
+  const handleDrawingManagerLoad = useCallback((drawingManager) => {
+    console.log('Drawing Manager loaded:', drawingManager);
+    drawingManagerRef.current = drawingManager;
+    
+    // Verify the drawing manager has access to drawing modes
+    console.log('Available drawing modes:', {
+      RECTANGLE: google.maps.drawing.OverlayType.RECTANGLE,
+      CIRCLE: google.maps.drawing.OverlayType.CIRCLE,
+      POLYLINE: google.maps.drawing.OverlayType.POLYLINE,
+      POLYGON: google.maps.drawing.OverlayType.POLYGON
+    });
+  }, [drawingManagerRef]);
 
-        let coordinates = '';
-        if (type === 'polygon' || type === 'rectangle') {
-            const bounds = shape.getBounds();
-            const northEast = bounds.getNorthEast();
-            const southWest = bounds.getSouthWest();
-            const northWest = new google.maps.LatLng(northEast.lat(), southWest.lng());
-            const southEast = new google.maps.LatLng(southWest.lat(), northEast.lng());
+  // Handle drawing complete event
+  const handleOverlayComplete = useCallback((e) => {
+    console.log('Drawing completed:', e);
+    
+    // Map Google Maps overlay types to our internal string representation
+    let overlayType;
+    switch (e.type) {
+      case google.maps.drawing.OverlayType.RECTANGLE:
+        overlayType = 'rectangle';
+        break;
+      case google.maps.drawing.OverlayType.CIRCLE:
+        overlayType = 'circle';
+        break;
+      case google.maps.drawing.OverlayType.POLYLINE:
+        overlayType = 'polyline';
+        break;
+      case google.maps.drawing.OverlayType.POLYGON:
+        overlayType = 'polygon';
+        break;
+      default:
+        overlayType = e.type; // Fallback to whatever was provided
+    }
+    
+    console.log('Mapped overlay type:', overlayType);
+    onDrawingComplete(e.overlay, overlayType);
+    
+    // Stop drawing mode after completion
+    if (drawingManagerRef.current) {
+      drawingManagerRef.current.setDrawingMode(null);
+    }
+  }, [onDrawingComplete, drawingManagerRef]);
 
-            coordinates = `${northEast.lat()},${northEast.lng()};${southEast.lat()},${southEast.lng()};${southWest.lat()},${southWest.lng()};${northWest.lat()},${northWest.lng()}`;
-        } else if (type === 'circle') {
-            const center = shape.getCenter();
-            coordinates = `${center.lat()},${center.lng()}; radius: ${shape.getRadius()}`;
+  // Button click handlers with debugging
+  const handleDrawRectangle = useCallback(() => {
+    console.log('Draw Rectangle clicked');
+    // Use our custom hook instead of direct access
+    enableDrawingMode('rectangle');
+  }, [enableDrawingMode]);
+
+  const handleDrawCircle = useCallback(() => {
+    console.log('Draw Circle clicked');
+    // Use our custom hook instead of direct access
+    enableDrawingMode('circle');
+  }, [enableDrawingMode]);
+
+  const handleDrawPolyline = useCallback(() => {
+    console.log('Draw Polyline clicked');
+    // Use our custom hook instead of direct access
+    enableDrawingMode('polyline');
+  }, [enableDrawingMode]);
+
+  const handleStopDrawing = useCallback(() => {
+    console.log('Stop Drawing clicked, drawingManagerRef:', drawingManagerRef.current);
+    stopDrawing();
+  }, [stopDrawing, drawingManagerRef]);
+
+  // Submit form to generate waypoints
+  const handleGenerateWaypoints = async () => {
+    console.log('Generate Waypoints clicked');
+    console.log('Current bounds:', bounds);
+    console.log('Current bounds type:', boundsType);
+    
+    // Verify we have bounds before trying to generate waypoints
+    if (!bounds) {
+      alert('No bounds defined. Please draw a shape first.');
+      return;
+    }
+    
+    if (!boundsType) {
+      alert('No bounds type defined. Please draw a shape first.');
+      return;
+    }
+    
+    // Validate coordinates based on bounds type
+    let validCoordinates;
+    try {
+      if (boundsType === "rectangle" || boundsType === "polyline") {
+        console.log('Parsing as rectangle or polyline:', bounds);
+        validCoordinates = validateAndCorrectCoordinates(bounds);
+      } else if (boundsType === "circle") {
+        console.log('Parsing circle bounds:', bounds);
+        
+        // IMPORTANT: For circles, first try to use the cached center if available
+        if (window.lastCircleCenter) {
+          console.log('Found cached circle center coordinates:', window.lastCircleCenter);
+          // Create a single coordinate with radius property from the cached values
+          validCoordinates = [{
+            Lat: window.lastCircleCenter.lat,
+            Lng: window.lastCircleCenter.lng,
+            lat: window.lastCircleCenter.lat,
+            lng: window.lastCircleCenter.lng,
+            radius: window.lastCircleCenter.radius,
+            Radius: window.lastCircleCenter.radius
+          }];
+          
+          console.log('Created circle data from cached coordinates:', validCoordinates);
+        } else {
+          // Try to parse from the bounds string as fallback
+          const circleData = parseShapeBounds(bounds, boundsType);
+          
+          // Verify the data
+          if (!circleData || !circleData.lat || !circleData.lng) {
+            console.error('Failed to get valid circle data from bounds');
+            alert('Error: Failed to determine circle center coordinates. Please try drawing the circle again.');
+            return;
+          }
+          
+          // Create a single coordinate with radius property
+          validCoordinates = [{
+            Lat: circleData.lat,
+            Lng: circleData.lng,
+            lat: circleData.lat,
+            lng: circleData.lng,
+            radius: circleData.radius,
+            Radius: circleData.radius
+          }];
+          
+          console.log('Processed circle data from bounds:', validCoordinates);
         }
-        else if (type === 'polyline') {
-            // K‰sitell‰‰n viiva ilman kaarevuutta
-            const path = shape.getPath();
-            const pathCoordinates = [];
-            for (let i = 0; i < path.getLength(); i++) {
-                const point = path.getAt(i);
-                pathCoordinates.push(`${point.lat()},${point.lng()}`);
-            }
-            coordinates = pathCoordinates.join(';');
-        }
-        setBounds(coordinates);
-        setBoundsType(type);
-
-        setStartingIndex((prevIndex) => prevIndex + 1);
-
-        // Set the position of the info window to the center of the shape
-        const position = type === 'circle' ? shape.getCenter() : (shape.getBounds ? shape.getBounds().getCenter() : null);
-        setInfoWindowPosition(position);
-        //setInfoWindowVisible(true);
-
-        // Set the content of the InfoWindow
-        if (genInfoWindow.current) {
-            genInfoWindow.current.setContent(`Coordinates: ${coordinates}`);
-            genInfoWindow.current.setPosition(position);
-            genInfoWindow.current.open(mapRef.current);
-        }
-    };
-
-    const handleDrawingModeChange = (mode) => {
-        if (drawingManagerRef.current) {
-            drawingManagerRef.current.setDrawingMode(mode);
-        }
-    };
-
-    const UpdateTimeEstimate = () => {
-        // Assuming you have access to the necessary variables to calculate the time estimate
-        const totalDistance = mapRef.current.flags.reduce((acc, marker, index, array) => {
-            if (index === 0) return acc;
-            const prevMarker = array[index - 1];
-            const distance = google.maps.geometry.spherical.computeDistanceBetween(
-                new google.maps.LatLng(prevMarker.lat, prevMarker.lng),
-                new google.maps.LatLng(marker.lat, marker.lng)
-            );
-            return acc + distance;
-        }, 0);
-
-        const estimatedTime = totalDistance / speed; // Assuming speed is in meters per second
-        console.log(`Estimated Time: ${estimatedTime} seconds`);
-    };
-
-    const redrawFlightPaths = () => {
-        // Clear existing flight paths
-        if (mapRef.current && mapRef.current.lines) {
-            mapRef.current.lines.forEach(line => line.setMap(null));
-            mapRef.current.lines = [];
-        }
-
-        // Redraw flight paths based on current markers
-        const flightPoints = mapRef.current.flags.map(marker => ({
-            lat: marker.lat,
-            lng: marker.lng
-        }));
-
-        const flightPath = new google.maps.Polyline({
-            path: flightPoints,
-            geodesic: true,
-            strokeColor: "#FF0000",
-            strokeOpacity: 1.0,
-            strokeWeight: 2,
-        });
-
-        flightPath.setMap(mapRef.current);
-        mapRef.current.lines.push(flightPath);
-    };
-    const handleClearShapes = () => {
-        shapes.forEach((shape) => shape.setMap(null));
-        setShapes([]);
-        setBounds('');
-        setBoundsType('');
-        setStartingIndex(1);
-        // Remove all markers from the map
-        if (mapRef.current && mapRef.current.flags) {
-            mapRef.current.flags.forEach((marker) => {
-                marker.setMap(null); // Remove marker from the map
-            });
-            mapRef.current.flags = []; // Clear the markers array
-        }
-
-        // Remove all routes (polylines) from the map
-        if (mapRef.current && mapRef.current.lines) {
-            mapRef.current.lines.forEach((line) => {
-                line.setMap(null); // Remove polyline (route) from the map
-            });
-            mapRef.current.lines = []; // Clear the routes array
-        }
-
-        // Clear waypoints state
-        setWaypoints([]);
-    };
-
-
-
-    const WaypointEditorSave = (id) => {
-        const map = mapRef.current; // Get the map object from the ref
-
-        map.flags.forEach((flag, i) => {
-            if (flag.id == document.getElementById("selectedWaypointId").innerHTML) {
-                if (flag.heading != document.getElementById("editWaypointHeading").value) {
-                    const updateMarker = {
-                        path: 'M 230 80 A 45 45, 0, 1, 0, 275 125 L 275 80 Z',
-                        fillOpacity: 0.8,
-                        fillColor: 'blue',
-                        anchor: new google.maps.Point(228, 125),
-                        strokeWeight: 3,
-                        strokeColor: 'white',
-                        scale: 0.5,
-                        rotation: document.getElementById("editWaypointHeading").value - 45,
-                        labelOrigin: new google.maps.Point(228, 125),
-                    };
-
-                    flag.setIcon(updateMarker);
-                }
-
-                // Update waypoint properties
-                flag.altitude = document.getElementById("editWaypointAltitude").value;
-                flag.speed = document.getElementById("editWaypointSpeed").value;
-                flag.angle = document.getElementById("editWaypointAngle").value;
-                flag.heading = document.getElementById("editWaypointHeading").value;
-                flag.action = document.getElementById("editWaypointAction").value;
-
-                if (document.getElementById("editWaypointID").value > map.flags.length) {
-                    document.getElementById("editWaypointID").value = map.flags.length;
-                }
-
-                if (flag.id != document.getElementById("editWaypointID").value) {
-                    let perc = 0;
-                    map.flags.forEach((otherFlag, x) => {
-                        const originalId = flag.id;
-                        if (otherFlag.id == document.getElementById("editWaypointID").value || perc == 1) {
-                            if (otherFlag.id < originalId) {
-                                otherFlag.id = parseInt(otherFlag.id) + 1;
-                                perc = 1;
-                            } else if (otherFlag.id >= originalId) {
-                                for (let y = otherFlag.id - 1; y >= originalId; y--) {
-                                    map.flags[y].id = parseInt(map.flags[y].id) - 1;
-                                    perc = 1;
-                                }
-
-                                flag.id = document.getElementById("editWaypointID").value;
-                                RedrawMarkers();
-                                map.flags.sort((a, b) => a.id - b.id);
-                                redrawFlightPaths();
-                                return;
-                            }
-                        }
-                    });
-
-                    flag.id = document.getElementById("editWaypointID").value;
-                    RedrawMarkers();
-                    map.flags.sort((a, b) => a.id - b.id);
-                    redrawFlightPaths();
-                }
-                return;
-            }
-        });
-    };
-
-    const WaypointEditiorRemove = () => {
-        const map = mapRef.current; // Get the map object from the ref
-
-        map.flags.forEach((flag, i) => {
-            if (flag.id == document.getElementById("selectedWaypointId").innerHTML) {
-                map.flags.forEach((otherFlag, x) => {
-                    if (flag.id < otherFlag.id) {
-                        otherFlag.id -= 1;
-                    }
-                });
-
-                RedrawMarkers(map);
-
-                flag.setMap(null);
-                map.flags.splice(i, 1);
-
-                redrawFlightPaths();
-                flagCount -= 1;
-                return;
-            }
-        });
-    };
-
-
-
-    const generateKml = async () => {
-        const requestData = {
-            FlyToWaylineMode: "safely",
-            FinishAction: finalAction,
-            ExitOnRCLost: "executeLostAction",
-            ExecuteRCLostAction: "goBack",
-            GlobalTransitionalSpeed: speed,
-            useEndpointsOnly: useEndpointsOnly,
-            interval: interval,
-
-            DroneInfo: {
-                DroneEnumValue: 1,
-                DroneSubEnumValue: 1
-            },
-            Waypoints: mapRef.current.flags.map((wp, index) => ({
-                Index: index,
-                Latitude: wp.lat,
-                Longitude: wp.lng,
-                ExecuteHeight: wp.altitude,
-                WaypointSpeed: wp.speed,
-                WaypointHeadingMode: "smoothTransition",
-                WaypointHeadingAngle: wp.angle,
-                WaypointHeadingPathMode: "followBadArc",
-                WaypointTurnMode: "toPointAndStopWithContinuityCurvature",
-                WaypointTurnDampingDist: "0",
-                Action: wp.action,
-            })),
-            ActionGroups: [] // Add your action groups here if any
+      } else {
+        console.log('Parsing with parseShapeBounds:', bounds, boundsType);
+        validCoordinates = parseShapeBounds(bounds, boundsType);
+      }
+      
+      console.log('Validated coordinates:', validCoordinates);
+      
+      // Check if validCoordinates is an array with length
+      if (!validCoordinates || !Array.isArray(validCoordinates) || validCoordinates.length === 0) {
+        throw new Error('Failed to parse coordinates from bounds');
+      }
+      
+      // Ensure coordinates are in the correct format
+      // This creates a new array with the necessary properties
+      validCoordinates = validCoordinates.map(coord => {
+        // Base coordinate object with Lat/Lng
+        const newCoord = {
+          Lat: Number(coord.Lat || coord.lat || 0),
+          Lng: Number(coord.Lng || coord.lng || 0)
         };
-
-        try {
-            const response = await axios.post(`${apiBaseUrl}/api/KMZ/generate`, requestData, {
-                responseType: 'blob', // Important for file download
-            });
-
-            // Create a URL for the blob
-            const url = window.URL.createObjectURL(new Blob([response.data]));
-            const link = downloadLinkRef.current;
-            link.href = url;
-            link.setAttribute('download', 'generated.kml');
-            link.click();
-            window.URL.revokeObjectURL(url); // Clean up the URL object
-
-        } catch (error) {
-            console.error('Error generating KML:', error);
+        
+        // For circle shape, ensure we include BOTH radius properties to handle different conventions
+        if (boundsType === "circle") {
+          newCoord.radius = Number(coord.radius || coord.Radius || 0);
+          newCoord.Radius = Number(coord.radius || coord.Radius || 0);
         }
+        
+        return newCoord;
+      });
+      
+    } catch (error) {
+      console.error('Error parsing coordinates:', error);
+      alert(`Error parsing coordinates: ${error.message}`);
+      return;
+    }
+
+    // Get flight parameters
+    const flightParameters = flightParams.getFlightParameters();
+    console.log('Flight parameters from hook:', flightParameters);
+    console.log('useEndpointsOnly specifically:', flightParameters.useEndpointsOnly);
+    
+    // Create request data with only primitive and safe-to-serialize values
+    const requestData = {
+      Bounds: validCoordinates,
+      BoundsType: String(boundsType || ''),
+      StartingIndex: Number(startingIndex || 1),
+      Altitude: Number(flightParameters.altitude || 60),
+      Speed: Number(flightParameters.speed || 2.5),
+      Angle: Number(flightParameters.angle || -45),
+      PhotoInterval: Number(flightParameters.interval || 2),
+      Overlap: Number(flightParameters.overlap || 80),
+      LineSpacing: Number(flightParameters.inDistance || 10),
+      // Use explicit boolean check for both camelCase and PascalCase
+      IsNorthSouth: flightParameters.isNorthSouth === true,
+      isNorthSouth: flightParameters.isNorthSouth === true, // Add lowercase version too
+      // Include both camelCase and PascalCase versions to ensure proper handling
+      UseEndpointsOnly: flightParameters.useEndpointsOnly === true,
+      useEndpointsOnly: flightParameters.useEndpointsOnly === true, // Add lowercase version too
+      AllPointsAction: String(flightParameters.allPointsAction || 'noAction'),
+      FinalAction: String(flightParameters.finalAction || '0'),
+      FlipPath: Boolean(flightParameters.flipPath),
+      UnitType: Number(flightParameters.unitType || 0)
     };
+    
+    // Verbose debug logging of the request
+    console.log('useEndpointsOnly value from flightParameters:', flightParameters.useEndpointsOnly);
+    console.log('useEndpointsOnly type:', typeof flightParameters.useEndpointsOnly);
+    console.log('UseEndpointsOnly in requestData:', requestData.UseEndpointsOnly);
+    console.log('Full API request payload:', JSON.stringify(requestData, null, 2));
+    
+    // Store the shape reference for UI updates only
+    const shapeForUI = selectedShape;
+    
+    // Test JSON serialization before sending
+    try {
+      const serialized = JSON.stringify(requestData);
+      console.log('Request data serialized successfully, length:', serialized.length);
+    } catch (jsonError) {
+      console.error('Cannot serialize request data:', jsonError);
+      alert('Error: Cannot serialize waypoint data. Please try again with a simpler shape.');
+      return;
+    }
+    
+    console.log('Request data for API call:', requestData);
 
-    const submitFormFetch = () => {
-
-        let validCoordinates = ' '
-        if (boundsType == "rectangle" || boundsType == "polyline") {
-            validCoordinates = validateAndCorrectCoordinates(bounds);
+    try {
+      // Call the API to generate waypoints
+      const response = await generateWaypointsFromAPI(requestData);
+      
+      console.log('Raw API response:', response);
+      
+      // Process waypoints and add them to the map
+      if (response && response.waypoints) {
+        // Update starting index after generating waypoints
+        setStartingIndex(prev => prev + 1);
+        
+        // Apply UI updates with the shape reference
+        if (shapeForUI) {
+          console.log('Keeping shape on map for reference');
         }
+      }
+    } catch (error) {
+      console.error('Generate waypoints error:', error);
+      alert('Error generating waypoints: ' + (error.message || error));
+    }
+  };
 
-        else {
-            validCoordinates = parseBoundsString(bounds)
-        }
-        // Ensure the state is updated before making the API call
-        const allPointsActionValue = document.getElementById('in_allPointsAction').value;
-        setAllPointsAction(allPointsActionValue);
-       
+  const handleGenerateKml = useCallback(() => {
+    console.log('Generate KML clicked');
+    generateKml(downloadLinkRef);
+  }, [generateKml, downloadLinkRef]);
 
-        // Extract necessary data from shapes to avoid circular references
-        const shapesData = shapes.map(shape => {
-            if (boundsType === 'polygon' || boundsType === 'rectangle') {
-                const bounds = shape.bounds;
-                return {
-                    type: shape.type,
-                    bounds: {
-                        northEast: { lat: bounds.getNorthEast().lat(), lng: bounds.getNorthEast().lng() },
-                        southWest: { lat: bounds.getSouthWest().lat(), lng: bounds.getSouthWest().lng() }
-                    }
-                };
-            } else if (boundsType === 'circle') {
-                const center = shape.getCenter();
-                return {
-                    type: shape.type,
-                    center: { lat: center.lat(), lng: center.lng() },
-                    radius: shape.getRadius()
-                };
-            }
-            return null;
-        }).filter(shape => shape !== null);
-
-        const data = {
-            shapes: shapesData,
-            Bounds: validCoordinates,
-            BoundsType: boundsType,
-            startingIndex: startingIndex,
-            unitType: unitType,
-            altitude: altitude,
-            speed: speed,
-            useEndpointsOnly: useEndpointsOnly,  // Include the useEndpointsOnly parameter
-            overlap: overlap,
-            allPointsAction: allPointsAction,
-            finalAction: finalAction,
-            flipPath: flipPath,
-            interval: photoInterval,
-            in_distance: inDistance,
-            angle: angle,
-            isNorthSouth: isNorthSouth
-
-
-        };
-
-
-        fetch(`${apiBaseUrl}/api/waypoints/generatePoints`, {
-            method: "post",
-            headers: {
-                "Content-Type": "application/json"
-            },
-                    body: JSON.stringify(data)
-
-        })
-            .then((res) => res.text())
-            .then((txt) => {
-                window.scrollTo(0, 0);
-                var generatedPoints = JSON.parse(txt);
-
-                let flightPoints = [];
-                let flagCount = startingIndex;
-
-                for (var i = 0; i < generatedPoints.length; i++) {
-                    const responseMarker = {
-                        path: 'M 230 80 A 45 45, 0, 1, 0, 275 125 L 275 80 Z',
-                        fillOpacity: 0.8,
-                        fillColor: 'blue',
-                        anchor: new google.maps.Point(228, 125),
-                        strokeWeight: 3,
-                        strokeColor: 'white',
-                        scale: 0.3,
-                        rotation: generatedPoints[i].heading - 45,
-                        labelOrigin: new google.maps.Point(228, 125),
-                    };
-
-                    var genWaypointMarker = new google.maps.Marker({
-                        position: {
-                            lat: generatedPoints[i].latitude, lng: generatedPoints[i].longitude
-                        },
-                        map: mapRef.current,
-                        label: {
-                            text: generatedPoints[i].id.toString(),
-                            color: "white"
-                        },
-                        draggable: true,
-                        icon: responseMarker,
-                        id: generatedPoints[i].id
-                    });
-
-                    genWaypointMarker.lng = generatedPoints[i].longitude;
-                    genWaypointMarker.lat = generatedPoints[i].latitude;
-                    genWaypointMarker.altitude = generatedPoints[i].altitude;
-                    genWaypointMarker.speed = generatedPoints[i].speed;
-                    genWaypointMarker.heading = generatedPoints[i].heading;
-                    genWaypointMarker.angle = generatedPoints[i].gimbalAngle;
-                    genWaypointMarker.action = generatedPoints[i].action;
-
-                    var marker = genWaypointMarker;
-
-                    google.maps.event.addListener(marker, "click", function (e) {
-                        genInfoWindow.current.close();
-                        genInfoWindow.current.setContent(GenerateWaypointInfoboxText(this));
-                        genInfoWindow.current.open(this.map, this);
-                        infoBoxUpdateListeners();
-
-                        document.getElementById("selectedWaypointId").innerHTML = this.id;
-                        document.getElementById("editWaypointAltitude").value = this.altitude;
-                        document.getElementById("editWaypointSpeed").value = this.speed;
-                        document.getElementById("editWaypointAngle").value = this.angle;
-                        document.getElementById("editWaypointHeading").value = this.heading;
-                        document.getElementById("editWaypointAction").value = this.action;
-                        document.getElementById("editWaypointID").value = this.id;
-
-                        setSelectedMarker(this); // Update selectedMarker state
-                    });
-
-                    google.maps.event.addListener(marker, "mouseup", function (e) {
-                        setSelectedMarker(this); // Update selectedMarker state
-                        redrawFlightPaths();
-                    });
-
-                    google.maps.event.addListener(marker, 'dragend', function (e) {
-                        this.lat = this.getPosition().lat();
-                        this.lng = this.getPosition().lng();
-                        genInfoWindow.current.close();
-                        genInfoWindow.current.setContent(GenerateWaypointInfoboxText(this));
-                        genInfoWindow.current.open(this.map, this);
-                    });
-
-                    mapRef.current.addListener("click", () => {
-                        genInfoWindow.current.close();
-                        setSelectedMarker(null); // Clear selectedMarker state
-                    });
-
-                    mapRef.current.flags.push(genWaypointMarker);
-
-                    flightPoints.push({ lat: generatedPoints[i].latitude, lng: generatedPoints[i].longitude });
-                }
-
-                const flightPath = new google.maps.Polyline({
-                    path: flightPoints,
-                    geodesic: true,
-                    strokeColor: "#FF0000",
-                    strokeOpacity: 1.0,
-                    strokeWeight: 2,
-                });
-
-                selectedShape.setMap(null);
-
-                flightPath.setMap(mapRef.current);
-                document.getElementById("in_startingIndex").value = flagCount;
-
-                mapRef.current.lines.push(flightPath);
-                redrawFlightPaths();
-                UpdateTimeEstimate();
-            })
-            .catch((err) => {
-                alert(err);
-            });
-    };
-
-    const enableDrawingMode = (mode) => {
-        if (drawingManagerRef.current) {
-            drawingManagerRef.current.setDrawingMode(mode);
+  // Handle flight parameter changes
+  const handleParameterChange = (paramName, value) => {
+    // Get the setter function name based on parameter name
+    const setterName = `set${paramName.charAt(0).toUpperCase() + paramName.slice(1)}`;
+    
+    // Call the appropriate setter from flightParams
+    if (typeof flightParams[setterName] === 'function') {
+      flightParams[setterName](value);
         }
     };
 
     return (
         <div className="flex-container">
-            <div className="input-container">
+      {/* Left panel for flight parameters */}
+      <div className="side-panel">
+        <h2 className="section-header">Drone Flight Planner</h2>
               
-                <a ref={downloadLinkRef} style={{ display: 'none' }}>Download KML</a>
-                {/* Add your input fields here */}
-                <label>
-                    Search Location
                     <input
-                        ref={inputRef} // Attach the input element to the ref
+          ref={inputRef}
                         type="text"
-                        placeholder="Search Location"
-                        className="input-style"
-                    />
-                </label>
-                <label>
-                    Altitude
-                    <input
-                        type="number"
-                        placeholder="Altitude"
-                        value={altitude}
-                        onChange={(e) => setAltitude(e.target.value)}
-                        className="input-style"
-                    />
-                </label>
-                <label>
-                    Speed
-                    <input
-                        type="number"
-                        placeholder="Speed"
-                        value={speed}
-                        onChange={(e) => setSpeed(e.target.value)}
-                        className="input-style"
-                    />
-                </label>
-                <label>
-                    Angle
-                    <input
-                        type="number"
-                        placeholder="Angle"
-                        value={angle}
-                        onChange={(e) => setAngle(e.target.value)}
-                        className="input-style"
-                    />
-                </label>
-                <label>
-                    Focal Length
-                    <input
-                        type="number"
-                        placeholder="Focal Length"
-                        value={focalLength}
-                        onChange={(e) => setFocalLength(e.target.value)}
-                        className="input-style"
-                    />
-                </label>
-                <label>
-                    Sensor Width
-                    <input
-                        type="number"
-                        placeholder="Sensor Width"
-                        value={sensorWidth}
-                        onChange={(e) => setSensorWidth(e.target.value)}
-                        className="input-style"
-                    />
-                </label>
-                <label>
-                    Sensor Height
-                    <input
-                        type="number"
-                        placeholder="Sensor Height"
-                        value={sensorHeight}
-                        onChange={(e) => setSensorHeight(e.target.value)}
-                        className="input-style"
-                    />
-                </label>
-                <label>
-                Vaihda suunta pohjoinen etel‰
-                    <input
-                        type="checkbox"  // Switch for controlling useEndpointsOnly
-                        checked={isNorthSouth}
-                        onChange={handleToggleisNorthSouth}
-                        className="input-style"
-                    />
-                </label>
-                <label>
-                    Use Endpoints Only with waypoints
-                    <input
-                        type="checkbox"  // Switch for controlling useEndpointsOnly
-                        checked={useEndpointsOnly}
-                        onChange={handleToggleUseEndpointsOnly}
-                        className="input-style"
-                    />
-                </label>
-                <label>
-                    Photo Interval
-                    <input
-                        type="number"
-                        placeholder="Photo Interval"
-                        value={photoInterval}
-                        onChange={(e) => setPhotoInterval(e.target.value)}
-                        className="input-style"
-                    />
-                </label>
-                <label>
-                    Overlap
-                    <input
-                        type="number"
-                        placeholder="Overlap"
-                        value={overlap}
-                        onChange={(e) => setOverlap(e.target.value)}
-                        className="input-style"
-                    />
-                </label>
-              
-                <label>
-                    In Distance
-                    <input
-                        type="number"
-                        placeholder="In Distance"
-                        value={inDistance}
-                        onChange={(e) => setInDistance(e.target.value)}
-                        className="input-style"
-                    />
-                </label>
-                <label>
-                    All Points Action
-                    <input
-                        type="text"
-                        id="in_allPointsAction"
-                        placeholder="All Points Action"
-                        value={in_allPointsAction}
-                        onChange={(e) => setInAllPointsAction(e.target.value)}
-                        className="input-style"
-                    />
-                </label>
-                {/* Add more inputs as needed */}
+          placeholder="Search for a location"
+          className="search-box"
+        />
+        <a ref={downloadLinkRef} style={{ display: 'none' }}>Download KML</a>
+        
+        <FlightParametersPanel 
+          flightParameters={flightParams} 
+          onValueChange={handleParameterChange}
+        />
             </div>
-            <div style={{ width: '70%', margin: '50px' }}>
               
-                {isLoaded && (
+      {/* Map container */}
+      <div className="map-container">
                     <GoogleMap
-                        mapContainerClassName="map-container"
-                        center={center}
-                        zoom={10}
-                        onLoad={onLoad} // Add this line to set the onLoad callback
-                        onClick={handleMapClickFree}  // K‰ytt‰j‰ voi klikata karttaa lis‰t‰kseen pisteit‰
-
-                    >
-                        {path.length > 0 && <Polyline path={path} options={{ strokeColor: '#FF0000', strokeWeight: 2 }} />}
-
+          mapContainerStyle={MAP_CONTAINER_STYLE}
+          center={DEFAULT_CENTER}
+          zoom={DEFAULT_ZOOM}
+          onLoad={onLoad}
+          onClick={handleMapClick}
+        >
+          {/* Draw path for polyline */}
+          {path.length > 0 && (
+            <Polyline 
+              path={path} 
+              options={{ strokeColor: '#FF0000', strokeWeight: 2 }} 
+            />
+          )}
+          
+          {/* Drawing manager - Only render when Google is properly loaded */}
+          {googleLoaded && window.google && window.google.maps && window.google.maps.drawing && (
                         <DrawingManager
-                            onLoad={(drawingManager) => (drawingManagerRef.current = drawingManager)}
-                            onOverlayComplete={(e) => onDrawingComplete(e.overlay, e.type)}
-                            options={{
-                                drawingControl: false,
-                                polygonOptions: {
-                                    fillColor: '#2196F3',
-                                    fillOpacity: 0.5,
-                                    strokeWeight: 2,
-                                    clickable: true,
-                                    editable: true,
-                                    zIndex: 1,
-                                },
-                            }}
-                        />
-                        {waypoints.map(waypoint => (
-                            <Marker key={waypoint.id} position={{ lat: waypoint.lat, lng: waypoint.lng }}
-                        />
-                        ))}
-                        <div className="button-container">
-
-                        <button className="stop-drawing-button" onClick={stopDrawing}>Stop Drawing</button>
-                        <input type="hidden" id="in_startingIndex" value={startingIndex} />
-                        <button className="generate-waypoints-button" onClick={submitFormFetch}>Generate waypoints</button>
-                        <button className="generate-kml-button" onClick={generateKml}>Generate KML</button>
-                        <button className="draw-rectangle-button"  onClick={() => enableDrawingMode('rectangle')}>Draw Rectangle</button>
-                        <button className="draw-rectangle-button" onClick={() => enableDrawingMode('circle')}>Draw circle</button>
-                        <button className="draw-rectangle-button" onClick={() => enableDrawingMode('polyline')}>Draw plyline</button>
-                        <button className="clear-shapes-button" onClick={() => handleClearShapes()}>Clear shapest</button>
-                        </div>
+              onLoad={handleDrawingManagerLoad}
+              onOverlayComplete={handleOverlayComplete}
+              options={DRAWING_MANAGER_OPTIONS}
+            />
+          )}
+          
+          {/* Map toolbar */}
+          <MapToolbar
+            onStopDrawing={handleStopDrawing}
+            onGenerateWaypoints={handleGenerateWaypoints}
+            onGenerateKml={handleGenerateKml}
+            onDrawRectangle={handleDrawRectangle}
+            onDrawCircle={handleDrawCircle}
+            onDrawPolyline={handleDrawPolyline}
+            onClearShapes={clearAll}
+            startingIndex={startingIndex}
+          />
                     </GoogleMap>
-                )}
             </div>
         </div>
     );
-}
+};
+
+/**
+ * Main MapComponent that wraps the inner component with context providers
+ */
+const MapComponent = () => {
+  const { isLoaded, loadError } = useJsApiLoader({
+    googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY, // Use environment variable
+    libraries: LIBRARIES, // Use the static LIBRARIES array
+  });
+
+  if (loadError) {
+    return <div className="loading-container">Error loading maps: {loadError.message}</div>;
+  }
+
+  if (!isLoaded) {
+    return <div className="loading-container">Loading map...</div>;
+  }
+
+  return (
+    <MapProvider>
+      <MapComponentInner />
+    </MapProvider>
+  );
+};
 
 export default MapComponent;
