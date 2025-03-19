@@ -188,7 +188,7 @@ The DroneKartta solution consists of the following projects:
 - **MappingBackend.Server**: Backend .NET API with domain logic
 - **KarttaBackendTest**: Test project for backend services
 
-The backend codebase uses the namespace `KarttaBackEnd2.Server` for consistency with legacy code.
+The backend codebase uses the namespace `MappingBackend.Server` for consistency.
 
 ## Testing
 
