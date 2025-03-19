@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { GoogleMap, useJsApiLoader, DrawingManager, Marker, Polyline, InfoWindow } from '@react-google-maps/api';
 import MapControls from './MapControls';
 import WaypointInfoBox from './WaypointInfoBox';
@@ -60,6 +60,8 @@ const SimpleMapComponent = () => {
   const [selectedShape, setSelectedShape] = useState(null);
   const [flightPath, setFlightPath] = useState([]);
   const [infoWindowPosition, setInfoWindowPosition] = useState(null);
+  const [toast, setToast] = useState({show: false, message: '', type: ''});
+  const [isDarkMode, setIsDarkMode] = useState(true);
   
   // Refs
   const mapRef = useRef(null);
@@ -236,6 +238,18 @@ const SimpleMapComponent = () => {
         setWaypoints(newWaypoints);
         updateFlightPath(newWaypoints);
         
+        // Add toast notification
+        setToast({
+          show: true,
+          message: `Generated ${newWaypoints.length} waypoints successfully!`,
+          type: 'success'
+        });
+        
+        // Automatically hide toast after 3 seconds
+        setTimeout(() => {
+          setToast({show: false, message: '', type: ''});
+        }, 3000);
+        
         // Remove the selected shape
         if (selectedShape) {
           selectedShape.setMap(null);
@@ -244,7 +258,15 @@ const SimpleMapComponent = () => {
       })
       .catch(error => {
         console.error('Error generating waypoints:', error);
-        alert('Failed to generate waypoints');
+        setToast({
+          show: true,
+          message: 'Failed to generate waypoints. Please try again.',
+          type: 'error'
+        });
+        
+        setTimeout(() => {
+          setToast({show: false, message: '', type: ''});
+        }, 3000);
       });
   };
   
@@ -271,6 +293,61 @@ const SimpleMapComponent = () => {
     } else {
       alert('Failed to create KML file');
     }
+  };
+  
+  // After the component mounts
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', isDarkMode ? 'dark' : 'light');
+  }, [isDarkMode]);
+  
+  // Modify the renderWaypoints function or the waypoint rendering part
+  const renderWaypoints = () => {
+    return waypoints.map((waypoint, index) => {
+      // Determine if this is a vertex waypoint (first, last, or any point where direction changes significantly)
+      const isVertex = index === 0 || index === waypoints.length - 1 || 
+        (index > 0 && index < waypoints.length - 1 && 
+          Math.abs(calculateHeadingChange(waypoints[index-1], waypoint, waypoints[index+1])) > 10);
+      
+      return (
+        <Marker
+          key={waypoint.id}
+          position={{ lat: waypoint.lat, lng: waypoint.lng }}
+          onClick={() => handleWaypointClick(waypoint)}
+          draggable={true}
+          onDragEnd={(e) => handleWaypointDragEnd(waypoint, e)}
+          icon={{
+            path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
+            rotation: waypoint.heading || 0,
+            scale: isVertex ? 6 : 4,
+            fillColor: isVertex ? '#FF4500' : '#3CB371',
+            fillOpacity: 0.8,
+            strokeWeight: 1,
+            strokeColor: '#ffffff'
+          }}
+          label={{
+            text: waypoint.id.toString(),
+            color: '#ffffff',
+            fontSize: '10px',
+            fontWeight: 'bold'
+          }}
+        />
+      );
+    });
+  };
+  
+  // Add function to calculate heading change (to detect vertices)
+  const calculateHeadingChange = (prev, current, next) => {
+    const heading1 = Math.atan2(
+      current.lng - prev.lng,
+      current.lat - prev.lat
+    ) * 180 / Math.PI;
+    
+    const heading2 = Math.atan2(
+      next.lng - current.lng,
+      next.lat - current.lat
+    ) * 180 / Math.PI;
+    
+    return (heading2 - heading1 + 360) % 360;
   };
   
   if (!isLoaded) {
@@ -321,16 +398,7 @@ const SimpleMapComponent = () => {
             )}
             
             {/* Waypoint Markers */}
-            {waypoints.map(waypoint => (
-              <Marker
-                key={`waypoint-${waypoint.id}`}
-                position={{ lat: waypoint.lat, lng: waypoint.lng }}
-                draggable={true}
-                onClick={() => handleWaypointClick(waypoint)}
-                onDragEnd={(e) => handleWaypointDragEnd(waypoint, e)}
-                label={waypoint.id.toString()}
-              />
-            ))}
+            {renderWaypoints()}
             
             {/* Info Window for Selected Waypoint */}
             {selectedWaypoint && infoWindowPosition && (
@@ -356,6 +424,19 @@ const SimpleMapComponent = () => {
           </GoogleMap>
         </div>
       </div>
+      <div className="theme-toggle">
+        <button 
+          className="btn btn-sm btn-outline-secondary" 
+          onClick={() => setIsDarkMode(!isDarkMode)}
+        >
+          {isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+        </button>
+      </div>
+      {toast.show && (
+        <div className={`toast-notification ${toast.type}`}>
+          {toast.message}
+        </div>
+      )}
     </div>
   );
 };

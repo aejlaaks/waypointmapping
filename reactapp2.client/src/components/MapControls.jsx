@@ -25,6 +25,7 @@ const MapControls = ({
   const [finalAction, setFinalAction] = useState('0');
   const [bounds, setBounds] = useState('');
   const [boundsType, setBoundsType] = useState('rectangle');
+  const [shapeType, setShapeType] = useState('rectangle');
 
   // Automatically calculate line spacing and speed based on camera parameters
   useEffect(() => {
@@ -50,14 +51,15 @@ const MapControls = ({
       speed,
       angle,
       bounds,
-      boundsType,
+      boundsType: shapeType,
       startingIndex,
       allPointsAction,
       finalAction,
       useEndpointsOnly,
       isNorthSouth,
       lineSpacing,
-      overlap
+      overlap,
+      photoInterval
     });
   };
 
@@ -186,7 +188,29 @@ const MapControls = ({
         <div className="row mt-3">
           <div className="col-12">
             <h5 className="mb-2">Pattern Settings</h5>
-            <div className="d-flex mb-2">
+            
+            <div className="form-group mb-3">
+              <label className="form-label">Shape Type</label>
+              <select 
+                className="form-select" 
+                value={shapeType} 
+                onChange={(e) => {
+                  setShapeType(e.target.value);
+                  setBoundsType(e.target.value);
+                  // For polylines, default to using endpoints only
+                  if (e.target.value === 'polyline') {
+                    setUseEndpointsOnly(true);
+                  }
+                }}
+              >
+                <option value="rectangle">Rectangle</option>
+                <option value="circle">Circle</option>
+                <option value="polygon">Polygon</option>
+                <option value="polyline">Polyline</option>
+              </select>
+            </div>
+            
+            <div className="d-flex mb-3">
               <div className="form-check me-3">
                 <input 
                   type="checkbox" 
@@ -195,7 +219,12 @@ const MapControls = ({
                   checked={useEndpointsOnly} 
                   onChange={() => setUseEndpointsOnly(!useEndpointsOnly)} 
                 />
-                <label className="form-check-label" htmlFor="useEndpointsOnly">Use Endpoints Only</label>
+                <label className="form-check-label" htmlFor="useEndpointsOnly">
+                  Use Endpoints Only
+                  {shapeType === 'polyline' && 
+                    <small className="d-block text-muted">Recommended for polylines</small>
+                  }
+                </label>
               </div>
               
               <div className="form-check">
@@ -205,10 +234,26 @@ const MapControls = ({
                   id="isNorthSouth" 
                   checked={isNorthSouth} 
                   onChange={() => setIsNorthSouth(!isNorthSouth)} 
+                  disabled={shapeType === 'polyline'} // Disable for polylines
                 />
-                <label className="form-check-label" htmlFor="isNorthSouth">North-South Pattern</label>
+                <label className="form-check-label" htmlFor="isNorthSouth">
+                  North-South Pattern
+                  {shapeType === 'polyline' && 
+                    <small className="d-block text-muted">Not applicable for polylines</small>
+                  }
+                </label>
               </div>
             </div>
+            
+            {shapeType === 'polyline' && (
+              <div className="alert alert-info mb-3">
+                <small>
+                  <strong>Polyline Tips:</strong> For paths, waypoints will follow the polyline shape.
+                  The "Use Endpoints Only" option creates waypoints only at the line vertices.
+                  Disable to generate intermediate waypoints along line segments.
+                </small>
+              </div>
+            )}
           </div>
         </div>
         
