@@ -1,6 +1,9 @@
 # DroneKartta - Drone Flight Path Planning Application
 
-DroneKartta is a web-based application for planning and visualizing drone flight paths. It allows users to create waypoints based on different geometric shapes (rectangles, circles, polygons, and polylines) and generate KML files for drone flight missions.
+DroneKartta is a web-based application for planning and visualizing DJI drone flight paths. It allows users to create waypoints based on different geometric shapes (rectangles, circles, polygons, and polylines) and generate KML files for drone flight missions. Tested with DJI mini 4 pro and Fly3. Propaply works with other DJI drones, but havent tested with anything else.
+
+If the mapping area is large you should maybe use option "useendpointsonly" so it will not generate too many waypoints because DJI controller may go crazy if you upload too many waypoints. Propably works with the other 
+option too, but if you open map in DJI controller screen it will propably crash. 
 
 ## Features
 
