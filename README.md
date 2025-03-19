@@ -40,22 +40,13 @@ The application now includes improved support for polyline-based flight paths wi
    - Improved form layout and control organization
 
 ### UI Screenshots
+![image](https://github.com/user-attachments/assets/ca230b8f-35d7-4669-a06f-0d11c332353e)
 
-#### Polyline Path Planning
-![Polyline Path Planning](https://via.placeholder.com/800x400?text=Polyline+Path+Planning)
-*Creating a flight path along a polyline with vertex and intermediate waypoints*
-
-#### Waypoint Visualization
-![Waypoint Visualization](https://via.placeholder.com/800x400?text=Waypoint+Visualization)
-*Visual distinction between vertex waypoints (orange) and intermediate waypoints (green)*
-
-#### Waypoint Editing
-![Waypoint Editing](https://via.placeholder.com/800x400?text=Waypoint+Editing)
-*Enhanced waypoint editing interface with heading visualization*
-
-#### Dark/Light Mode
-![Theme Support](https://via.placeholder.com/800x400?text=Theme+Support)
-*Support for dark and light themes for different lighting conditions*
+![polylineWithout](https://github.com/user-attachments/assets/6c9497c7-b12b-410f-bc7c-480530b04c5f)
+![rectangleWaypoints](https://github.com/user-attachments/assets/49d0f90d-e274-42dd-a165-d40f6d71539b)
+![rectangleOnlyEndpoint](https://github.com/user-attachments/assets/8712e8ca-dbca-40d7-ada2-7a4c0e506b1a)
+![polylineAll](https://github.com/user-attachments/assets/2529f983-f6c8-4da9-9756-2612bfc97b24)
+![CircleMap](https://github.com/user-attachments/assets/e985a00b-4831-42d1-87cc-ff78faf9626a)
 
 ## Technical Implementation
 
