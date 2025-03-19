@@ -1,11 +1,9 @@
 ﻿using KarttaBackEnd2.Server.Models;
-using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
-using System.Collections.Generic;
 
 namespace KarttaBackEnd2.Server.Data
 {
-    public class ApplicationDbContext : IdentityDbContext<User>
+    public class ApplicationDbContext : DbContext
     {
         public DbSet<Waypoint> Waypoints { get; set; }
 

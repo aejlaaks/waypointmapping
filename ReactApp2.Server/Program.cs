@@ -2,8 +2,6 @@ using KarttaBackEnd2.Server.Data;
 using KarttaBackEnd2.Server.Interfaces;
 using KarttaBackEnd2.Server.Models;
 using KarttaBackEnd2.Server.Services;
-using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.EntityFrameworkCore;
 using System.Globalization;
 

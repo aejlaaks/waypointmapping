@@ -12,8 +12,6 @@ namespace KarttaBackEnd2.Server.Data
         public double Heading { get; set; }
         public double GimbalAngle { get; set; }
         public string Action { get; set; }
-        public string UserId { get; set; }
-        public User User { get; set; }
         public int FlightOrientation { get; set; } // 0 = East-West, 1 = North-South
         public bool FlipPath { get; set; } // Kääntää reitin
         public bool StraightenPaths { get; set; } // Suoristaa reitit
