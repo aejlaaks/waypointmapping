@@ -24,7 +24,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\ReactApp2.Server\MappingBackend.Server.csproj" />
+    <ProjectReference Include="..\MappingBackend.Server\MappingBackend.Server.csproj" />
   </ItemGroup>
 
   <ItemGroup>

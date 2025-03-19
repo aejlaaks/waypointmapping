@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using KarttaBackEnd2.Server.Models;
 using KarttaBackEnd2.Server.Services;
+
 using Microsoft.Extensions.Logging;
 using Moq;
 using Xunit;

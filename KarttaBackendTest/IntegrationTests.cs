@@ -1,14 +1,16 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using KarttaBackEnd2.Server.DTOs;
-using KarttaBackEnd2.Server.Interfaces;
-using KarttaBackEnd2.Server.Models;
-using KarttaBackEnd2.Server.Services;
+
+
+
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Moq;
 using Xunit;
+using KarttaBackEnd2.Server.Interfaces;
+using KarttaBackEnd2.Server.Models;
+using KarttaBackEnd2.Server.Services;
 
 namespace KarttaBackendTest
 {

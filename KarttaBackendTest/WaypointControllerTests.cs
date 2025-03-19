@@ -4,6 +4,7 @@ using KarttaBackEnd2.Server.Controllers;
 using KarttaBackEnd2.Server.DTOs;
 using KarttaBackEnd2.Server.Interfaces;
 using KarttaBackEnd2.Server.Models;
+
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Moq;
@@ -25,7 +26,7 @@ namespace KarttaBackendTest
         }
 
         [Fact]
-        public async Task GeneratePoints_ReturnsOkResult_WithWaypoints()
+        public async Task GenerateWaypoints_ReturnsOkResult_WithWaypoints()
         {
             // Arrange
             var bounds = new List<Coordinate>
@@ -58,7 +59,7 @@ namespace KarttaBackendTest
             )).ReturnsAsync(waypoints);
 
             // Act
-            var result = await _controller.GeneratePoints(new GeneratePointsRequestDTO
+            var result = await _controller.GenerateWaypoints(new GeneratePointsRequestDTO
             {
                 AllPointsAction = "takePhoto",
                 UnitType = 0,

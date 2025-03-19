@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using KarttaBackEnd2.Server.Models;
 using KarttaBackEnd2.Server.Services;
+using KarttaBackEnd2.Server.Interfaces;
 using Microsoft.Extensions.Logging;
 using Moq;
 using Xunit;
@@ -11,11 +12,13 @@ namespace KarttaBackendTest
     {
         private readonly PolylineShapeService _polylineService;
         private readonly Mock<ILogger<PolylineShapeService>> _mockLogger;
+        private readonly Mock<IGeometryService> _mockGeometryService;
 
         public PolylineShapeServiceTests()
         {
             _mockLogger = new Mock<ILogger<PolylineShapeService>>();
-            _polylineService = new PolylineShapeService(_mockLogger.Object);
+            _mockGeometryService = new Mock<IGeometryService>();
+            _polylineService = new PolylineShapeService(_mockGeometryService.Object, _mockLogger.Object);
         }
 
         [Fact]
