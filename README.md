@@ -184,7 +184,8 @@ The waypoint generation algorithm is optimized for:
 ### Exporting Flight Plan
 
 - Click "Download KML" to save the flight plan in KML format
-- Import the KML file into your drone's flight controller software
+- Import the KML file into your drone's flight controller software, you need to use existing kml-file which is created with the controller.
+  FIRST CREATE NEW WAYPOINT WITH DJI CONTROLLER AND THEN NAME YOUR KML FILE WHICH YOU DOWNLOADED FROM THE APP WITH THE SAME NAME AS WITH YOUR NEWLY CREATED FILE IN CONTROLLER AND THEN COPY/OVERWRITE THE FILE TO CONTROLLER
 
 ## Project Structure
 
